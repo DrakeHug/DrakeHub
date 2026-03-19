@@ -7,7 +7,9 @@ local player = Players.LocalPlayer
 --
 local savedHive = nil
 local open = true
-
+--speed
+local speedEnabled = false
+local currentSpeed = 50
 --
 local function getRoot()
 	local char = player.Character or player.CharacterAdded:Wait()
@@ -37,7 +39,21 @@ local function saveHive()
 		warn("Không tìm thấy hive!")
 	end
 end
+local function applySpeed()
+	local char = player.Character or player.CharacterAdded:Wait()
+	local humanoid = char:WaitForChild("Humanoid")
 
+	if speedEnabled then
+		humanoid.WalkSpeed = currentSpeed
+	else
+		humanoid.WalkSpeed = 16
+	end
+end
+
+player.CharacterAdded:Connect(function()
+	task.wait(1)
+	applySpeed()
+end)
 local function teleportHive()
 	if savedHive then
 		local root = getRoot()
@@ -142,6 +158,7 @@ end
 
 local TeleportTab = tabButton("🌍 Fields", 15)
 local NPCTab = tabButton("🐻 NPC", 60)
+local MiscTab = tabButton("⚙️ Misc", 105)
 
 -- Content
 local Content = Instance.new("ScrollingFrame", Main)
@@ -210,7 +227,67 @@ local function loadNPC()
 		createItem(v)
 	end
 end
+local function loadMisc()
+	clear()
+	Content.CanvasPosition = Vector2.new(0, 0)
 
+	--  (căn giữa)
+	local frame = Instance.new("Frame", Content)
+	frame.Size = UDim2.new(1, -10, 0, 60)
+	frame.BackgroundTransparency = 1
+
+	-- Toggle
+	local toggle = Instance.new("TextButton", frame)
+	toggle.Size = UDim2.new(0, 120, 0, 40)
+	toggle.AnchorPoint = Vector2.new(0.5, 0.5)
+	toggle.Position = UDim2.new(0.3, 0, 0.5, 0)
+	toggle.Text = "Speed: OFF"
+	toggle.BackgroundColor3 = Color3.fromRGB(40,40,45)
+	toggle.TextColor3 = Color3.new(1,1,1)
+	toggle.Font = Enum.Font.Gotham
+	toggle.TextSize = 14
+
+	local corner1 = Instance.new("UICorner")
+	corner1.CornerRadius = UDim.new(0,8)
+	corner1.Parent = toggle
+
+	-- Input speed
+	local box = Instance.new("TextBox", frame)
+	box.Size = UDim2.new(0, 100, 0, 40)
+	box.AnchorPoint = Vector2.new(0.5, 0.5)
+	box.Position = UDim2.new(0.7, 0, 0.5, 0)
+	box.Text = tostring(currentSpeed)
+	box.PlaceholderText = "Speed"
+	box.BackgroundColor3 = Color3.fromRGB(30,30,30)
+	box.TextColor3 = Color3.new(1,1,1)
+	box.ClearTextOnFocus = false
+	box.Font = Enum.Font.Gotham
+	box.TextSize = 14
+
+	local corner2 = Instance.new("UICorner")
+	corner2.CornerRadius = UDim.new(0,8)
+	corner2.Parent = box
+
+	-- Toggle logic
+	toggle.MouseButton1Click:Connect(function()
+		speedEnabled = not speedEnabled
+		toggle.Text = speedEnabled and "Speed: ON" or "Speed: OFF"
+		applySpeed()
+	end)
+
+	-- Input logic
+	box.FocusLost:Connect(function()
+		local num = tonumber(box.Text)
+		if num then
+			currentSpeed = math.clamp(num, 16, 300)
+			box.Text = tostring(currentSpeed)
+			applySpeed()
+		else
+			box.Text = tostring(currentSpeed)
+		end
+	end)
+end
+MiscTab.MouseButton1Click:Connect(loadMisc)
 TeleportTab.MouseButton1Click:Connect(loadFields)
 NPCTab.MouseButton1Click:Connect(loadNPC)
 
@@ -223,3 +300,4 @@ UIS.InputBegan:Connect(function(input, gpe)
 		ScreenGui.Enabled = open
 	end
 end)
+applySpeed()
