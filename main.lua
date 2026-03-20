@@ -49,7 +49,23 @@ local function applySpeed()
 		humanoid.WalkSpeed = 16
 	end
 end
+task.spawn(function()
+	while true do
+		task.wait(0.2)
 
+		if speedEnabled then
+			local char = player.Character
+			if char and char:FindFirstChild("Humanoid") then
+				local hum = char.Humanoid
+
+				-- nếu bị game giảm speed → set lại
+				if hum.WalkSpeed ~= currentSpeed then
+					hum.WalkSpeed = currentSpeed
+				end
+			end
+		end
+	end
+end)
 player.CharacterAdded:Connect(function()
 	task.wait(1)
 	applySpeed()
@@ -203,7 +219,7 @@ local fields = {
 	"Bamboo Field","Blue Flower Field","Cactus Field","Coconut Field",
 	"Clover Field","Dandelion Field","Sunflower Field","Mushroom Field",
 	"Mountain Top Field","Spider Field","Strawberry Field","Rose Field",
-	"Pine Tree Forest","Pumpkin Patch","Pepper Patch"
+	"Pine Tree Forest","Pumpkin Patch","Pepper Patch","Pineapple Patch"
 }
 
 local npcs = {
