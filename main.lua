@@ -1,6 +1,7 @@
 --
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
+local autoSnowflake = false
 
 local player = Players.LocalPlayer
 
@@ -99,7 +100,23 @@ local function teleportTo(name)
 		warn("Không tìm thấy:", name)
 	end
 end
+-- Auto Snowflake
+task.spawn(function()
+	while true do
+		task.wait(5) -- cooldown 1s
 
+		if autoSnowflake then
+			local root = getRoot()
+
+			for _, v in pairs(workspace.Particles.Snowflakes:GetChildren()) do
+				if v.Name == "SnowflakePart" and v:IsA("BasePart") then
+					root.CFrame = v.CFrame + Vector3.new(0,3,0)
+					task.wait(0.2)
+				end
+			end
+		end
+	end
+end)
 --GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ProHub"
@@ -247,31 +264,26 @@ local function loadMisc()
 	clear()
 	Content.CanvasPosition = Vector2.new(0, 0)
 
-	--  (căn giữa)
+	-- FRAME CHỨA TẤT CẢ
 	local frame = Instance.new("Frame", Content)
-	frame.Size = UDim2.new(1, -10, 0, 60)
+	frame.Size = UDim2.new(1, -10, 0, 120)
 	frame.BackgroundTransparency = 1
 
-	-- Toggle
+	-- SPEED TOGGLE
 	local toggle = Instance.new("TextButton", frame)
 	toggle.Size = UDim2.new(0, 120, 0, 40)
-	toggle.AnchorPoint = Vector2.new(0.5, 0.5)
-	toggle.Position = UDim2.new(0.3, 0, 0.5, 0)
+	toggle.Position = UDim2.new(0.2, 0, 0, 0)
 	toggle.Text = "Speed: OFF"
 	toggle.BackgroundColor3 = Color3.fromRGB(40,40,45)
 	toggle.TextColor3 = Color3.new(1,1,1)
 	toggle.Font = Enum.Font.Gotham
 	toggle.TextSize = 14
+	Instance.new("UICorner", toggle)
 
-	local corner1 = Instance.new("UICorner")
-	corner1.CornerRadius = UDim.new(0,8)
-	corner1.Parent = toggle
-
-	-- Input speed
+	-- INPUT SPEED
 	local box = Instance.new("TextBox", frame)
 	box.Size = UDim2.new(0, 100, 0, 40)
-	box.AnchorPoint = Vector2.new(0.5, 0.5)
-	box.Position = UDim2.new(0.7, 0, 0.5, 0)
+	box.Position = UDim2.new(0.55, 0, 0, 0)
 	box.Text = tostring(currentSpeed)
 	box.PlaceholderText = "Speed"
 	box.BackgroundColor3 = Color3.fromRGB(30,30,30)
@@ -279,19 +291,26 @@ local function loadMisc()
 	box.ClearTextOnFocus = false
 	box.Font = Enum.Font.Gotham
 	box.TextSize = 14
+	Instance.new("UICorner", box)
 
-	local corner2 = Instance.new("UICorner")
-	corner2.CornerRadius = UDim.new(0,8)
-	corner2.Parent = box
+	-- AUTO SNOWFLAKE (👇 NẰM DƯỚI SPEED)
+	local snowBtn = Instance.new("TextButton", frame)
+	snowBtn.Size = UDim2.new(1, 0, 0, 40)
+	snowBtn.Position = UDim2.new(0, 0, 0, 60)
+	snowBtn.Text = "Auto Snowflake: OFF"
+	snowBtn.BackgroundColor3 = Color3.fromRGB(40,40,45)
+	snowBtn.TextColor3 = Color3.new(1,1,1)
+	snowBtn.Font = Enum.Font.Gotham
+	snowBtn.TextSize = 14
+	Instance.new("UICorner", snowBtn)
 
-	-- Toggle logic
+	-- LOGIC SPEED
 	toggle.MouseButton1Click:Connect(function()
 		speedEnabled = not speedEnabled
 		toggle.Text = speedEnabled and "Speed: ON" or "Speed: OFF"
 		applySpeed()
 	end)
 
-	-- Input logic
 	box.FocusLost:Connect(function()
 		local num = tonumber(box.Text)
 		if num then
@@ -302,7 +321,14 @@ local function loadMisc()
 			box.Text = tostring(currentSpeed)
 		end
 	end)
+
+	-- LOGIC SNOWFLAKE
+	snowBtn.MouseButton1Click:Connect(function()
+		autoSnowflake = not autoSnowflake
+		snowBtn.Text = autoSnowflake and "Auto Snowflake: ON" or "Auto Snowflake: OFF"
+	end)
 end
+
 MiscTab.MouseButton1Click:Connect(loadMisc)
 TeleportTab.MouseButton1Click:Connect(loadFields)
 NPCTab.MouseButton1Click:Connect(loadNPC)
