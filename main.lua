@@ -10,7 +10,7 @@ local savedHive = nil
 local open = true
 --speed
 local speedEnabled = false
-local currentSpeed = 50
+local currentSpeed = 80
 --
 local function getRoot()
 	local char = player.Character or player.CharacterAdded:Wait()
