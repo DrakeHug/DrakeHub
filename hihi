@@ -1,31 +1,30 @@
---========================================================
--- AUTO DUNGEON - 1 SCRIPT
--- Tự bật khi chạy
--- Không cần room1/room2/room3...
--- Tìm mọi enemyFolder trong Workspace
---========================================================
-
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 
---========================================================
+--==================================================
 -- SETTINGS
---========================================================
+--==================================================
 
 local ENABLED = true
 
-local SEARCH_RANGE = 150
-local ATTACK_DISTANCE = 3
+-- Tăng phạm vi tìm quái
+local SEARCH_RANGE = 500
 
-local TARGET_UPDATE = 0.25
-local ATTACK_COOLDOWN = 0.5
+-- Khoảng cách đứng với quái
+local ATTACK_DISTANCE = 4
 
---========================================================
+-- Tần suất tìm target
+local TARGET_UPDATE = 0.20
+
+-- Tốc độ auto click
+local ATTACK_COOLDOWN = 0.35
+
+--==================================================
 -- VARIABLES
---========================================================
+--==================================================
 
 local currentTarget = nil
 local enemyFolders = {}
@@ -33,16 +32,15 @@ local enemyFolders = {}
 local targetTimer = 0
 local attackTimer = 0
 
---========================================================
+--==================================================
 -- CHARACTER
---========================================================
+--==================================================
 
 local function getCharacter()
 	return player.Character
 end
 
 local function getPlayerRoot()
-
 	local character = getCharacter()
 
 	if not character then
@@ -52,9 +50,9 @@ local function getPlayerRoot()
 	return character:FindFirstChild("HumanoidRootPart")
 end
 
---========================================================
--- TÌM ROOT NPC
---========================================================
+--==================================================
+-- NPC ROOT
+--==================================================
 
 local function getEnemyRoot(enemy)
 
@@ -62,33 +60,31 @@ local function getEnemyRoot(enemy)
 		return nil
 	end
 
-	-- Ưu tiên HumanoidRootPart
-	local root =
-		enemy:FindFirstChild("HumanoidRootPart")
+	local root = enemy:FindFirstChild("HumanoidRootPart")
 
 	if root and root:IsA("BasePart") then
 		return root
 	end
 
-	-- Nếu có PrimaryPart
 	if enemy.PrimaryPart then
 		return enemy.PrimaryPart
 	end
 
-	-- Fallback: tìm BasePart
+	-- fallback
 	for _, obj in ipairs(enemy:GetDescendants()) do
 
 		if obj:IsA("BasePart") then
 			return obj
 		end
+
 	end
 
 	return nil
 end
 
---========================================================
--- KIỂM TRA NPC
---========================================================
+--==================================================
+-- CHECK ENEMY
+--==================================================
 
 local function isEnemy(enemy)
 
@@ -107,7 +103,7 @@ local function isEnemy(enemy)
 		return false
 	end
 
-	-- Không target người chơi
+	-- Không target player
 	if Players:GetPlayerFromCharacter(enemy) then
 		return false
 	end
@@ -119,9 +115,9 @@ local function isEnemy(enemy)
 	return true
 end
 
---========================================================
--- TÌM TẤT CẢ enemyFolder
---========================================================
+--==================================================
+-- FIND ENEMY FOLDERS
+--==================================================
 
 local function rebuildEnemyFolders()
 
@@ -133,19 +129,21 @@ local function rebuildEnemyFolders()
 			and obj.Name == "enemyFolder" then
 
 			table.insert(enemyFolders, obj)
+
 		end
 	end
 end
 
 rebuildEnemyFolders()
 
--- Map/room mới được tạo
+-- Tự nhận enemyFolder mới
 workspace.DescendantAdded:Connect(function(obj)
 
 	if obj:IsA("Folder")
 		and obj.Name == "enemyFolder" then
 
 		table.insert(enemyFolders, obj)
+
 	end
 end)
 
@@ -156,12 +154,13 @@ workspace.DescendantRemoving:Connect(function(obj)
 		if enemyFolders[i] == obj then
 			table.remove(enemyFolders, i)
 		end
+
 	end
 end)
 
---========================================================
--- TÌM QUÁI GẦN NHẤT
---========================================================
+--==================================================
+-- FIND NEAREST TARGET
+--==================================================
 
 local function findNearestEnemy()
 
@@ -179,21 +178,22 @@ local function findNearestEnemy()
 
 		if folder and folder.Parent then
 
-			-- Không quan trọng room tên gì
+			-- Không quan tâm room tên gì
+			-- Không quan tâm NPC tên gì
 			for _, obj in ipairs(folder:GetDescendants()) do
 
 				if obj:IsA("Model")
 					and isEnemy(obj) then
 
-					local root =
+					local enemyRoot =
 						getEnemyRoot(obj)
 
-					if root then
+					if enemyRoot then
 
 						local distance =
 							(
 								playerRoot.Position
-								- root.Position
+								- enemyRoot.Position
 							).Magnitude
 
 						if distance < nearestDistance then
@@ -211,9 +211,48 @@ local function findNearestEnemy()
 	return nearest
 end
 
---========================================================
--- TELEPORT / ÁP SÁT
---========================================================
+--==================================================
+-- FIND GROUND
+--==================================================
+
+local function getGroundPosition(position, character, enemy)
+
+	local params = RaycastParams.new()
+
+	params.FilterType =
+		Enum.RaycastFilterType.Exclude
+
+	params.FilterDescendantsInstances = {
+		character,
+		enemy
+	}
+
+	-- Ray từ trên xuống
+	local origin =
+		position + Vector3.new(0, 25, 0)
+
+	local direction =
+		Vector3.new(0, -80, 0)
+
+	local result =
+		workspace:Raycast(
+			origin,
+			direction,
+			params
+		)
+
+	if result then
+
+		-- đứng trên mặt đất
+		return result.Position
+	end
+
+	return nil
+end
+
+--==================================================
+-- MOVE TO ENEMY
+--==================================================
 
 local function moveToEnemy(enemy)
 
@@ -237,64 +276,93 @@ local function moveToEnemy(enemy)
 		return
 	end
 
-	local difference =
+	-- Vector nằm ngang
+	local offset =
 		playerRoot.Position
 		- enemyRoot.Position
 
-	local distance =
-		difference.Magnitude
+	local horizontal =
+		Vector3.new(
+			offset.X,
+			0,
+			offset.Z
+		)
 
-	-- Đã gần đủ
-	if distance <= ATTACK_DISTANCE then
+	if horizontal.Magnitude < 0.01 then
 
-		playerRoot.CFrame =
-			CFrame.lookAt(
-				playerRoot.Position,
-				enemyRoot.Position
-			)
-
-		return
-	end
-
-	local direction
-
-	if distance > 0.01 then
-
-		direction =
-			difference.Unit
+		horizontal =
+			Vector3.new(0, 0, 1)
 
 	else
 
-		direction =
-			Vector3.new(0, 0, 1)
+		horizontal =
+			horizontal.Unit
 
 	end
 
-	-- Đứng cách enemy 3 studs
-	local position =
+	-- Vị trí đứng cạnh quái
+	local desired =
 		enemyRoot.Position
-	+ direction * ATTACK_DISTANCE
+	+ horizontal * ATTACK_DISTANCE
 
-	-- Giữ độ cao nhân vật
-	position = Vector3.new(
-		position.X,
-		playerRoot.Position.Y,
-		position.Z
-	)
+	-- Không teleport xuống lòng đất
+	local ground =
+		getGroundPosition(
+			desired,
+			character,
+			enemy
+		)
+
+	local finalPosition
+
+	if ground then
+
+		local humanoid =
+			character:FindFirstChildOfClass("Humanoid")
+
+		local height = 3
+
+		if humanoid then
+			height = humanoid.HipHeight + 2
+		end
+
+		finalPosition =
+			ground
+			+ Vector3.new(0, height, 0)
+
+	else
+
+		-- fallback: giữ Y hiện tại
+		finalPosition =
+			Vector3.new(
+				desired.X,
+				playerRoot.Position.Y,
+				desired.Z
+			)
+
+	end
+
+	-- Nhìn về phía quái nhưng không cúi xuống
+	local lookAt =
+		Vector3.new(
+			enemyRoot.Position.X,
+			finalPosition.Y,
+			enemyRoot.Position.Z
+		)
 
 	character:PivotTo(
 		CFrame.lookAt(
-			position,
-			enemyRoot.Position
+			finalPosition,
+			lookAt
 		)
 	)
 end
 
---========================================================
--- AUTO CLICK / TOOL
---========================================================
+--==================================================
+-- AUTO CLICK TOOL
+--==================================================
 
-local function autoAttack()
+local function autoClick()
 
 	local character =
 		getCharacter()
@@ -306,17 +374,17 @@ local function autoAttack()
 	local tool =
 		character:FindFirstChildOfClass("Tool")
 
-	if tool then
-
-		-- Kích hoạt attack của Tool
-		tool:Activate()
-
+	if not tool then
+		return
 	end
+
+	-- Kích hoạt attack của Tool
+	tool:Activate()
 end
 
---========================================================
+--==================================================
 -- MAIN LOOP
---========================================================
+--==================================================
 
 RunService.Heartbeat:Connect(function(delta)
 
@@ -327,7 +395,7 @@ RunService.Heartbeat:Connect(function(delta)
 	targetTimer += delta
 	attackTimer += delta
 
-	-- Tìm target định kỳ để giảm lag
+	-- Tìm target
 	if targetTimer >= TARGET_UPDATE then
 
 		targetTimer = 0
@@ -341,16 +409,19 @@ RunService.Heartbeat:Connect(function(delta)
 		end
 	end
 
+	-- Có target
 	if currentTarget
 		and isEnemy(currentTarget) then
 
+		-- Áp sát
 		moveToEnemy(currentTarget)
 
+		-- Auto click
 		if attackTimer >= ATTACK_COOLDOWN then
 
 			attackTimer = 0
 
-			autoAttack()
+			autoClick()
 
 		end
 
@@ -361,9 +432,9 @@ RunService.Heartbeat:Connect(function(delta)
 	end
 end)
 
---========================================================
+--==================================================
 -- GUI
---========================================================
+--==================================================
 
 local gui =
 	Instance.new("ScreenGui")
@@ -380,18 +451,18 @@ local main =
 	Instance.new("Frame")
 
 main.Size =
-	UDim2.fromOffset(320, 205)
+	UDim2.fromOffset(330, 220)
 
 main.Position =
 	UDim2.new(
 		0.5,
-		-160,
+		-165,
 		0.5,
-		-102
+		-110
 	)
 
 main.BackgroundColor3 =
-	Color3.fromRGB(20,20,25)
+	Color3.fromRGB(20, 20, 25)
 
 main.BorderSizePixel = 0
 
@@ -401,19 +472,16 @@ local corner =
 	Instance.new("UICorner")
 
 corner.CornerRadius =
-	UDim.new(0,12)
+	UDim.new(0, 12)
 
 corner.Parent = main
 
---========================================================
 -- TITLE
---========================================================
-
 local title =
 	Instance.new("TextLabel")
 
 title.Size =
-	UDim2.new(1,0,0,42)
+	UDim2.new(1, 0, 0, 42)
 
 title.BackgroundTransparency = 1
 
@@ -421,7 +489,7 @@ title.Text =
 	"⚔ AUTO DUNGEON"
 
 title.TextColor3 =
-	Color3.new(1,1,1)
+	Color3.new(1, 1, 1)
 
 title.Font =
 	Enum.Font.GothamBold
@@ -430,18 +498,15 @@ title.TextSize = 18
 
 title.Parent = main
 
---========================================================
 -- TOGGLE
---========================================================
-
 local toggle =
 	Instance.new("TextButton")
 
 toggle.Size =
-	UDim2.fromOffset(290,40)
+	UDim2.fromOffset(300, 40)
 
 toggle.Position =
-	UDim2.fromOffset(15,48)
+	UDim2.fromOffset(15, 48)
 
 toggle.BorderSizePixel = 0
 
@@ -451,31 +516,65 @@ toggle.Font =
 toggle.TextSize = 14
 
 toggle.TextColor3 =
-	Color3.new(1,1,1)
+	Color3.new(1, 1, 1)
 
 toggle.Parent = main
 
-local toggleCorner =
+local tc =
 	Instance.new("UICorner")
 
-toggleCorner.CornerRadius =
-	UDim.new(0,8)
+tc.CornerRadius =
+	UDim.new(0, 8)
 
-toggleCorner.Parent =
-	toggle
+tc.Parent = toggle
 
---========================================================
+-- SEARCH RANGE
+local rangeBox =
+	Instance.new("TextBox")
+
+rangeBox.Size =
+	UDim2.fromOffset(140, 38)
+
+rangeBox.Position =
+	UDim2.fromOffset(15, 100)
+
+rangeBox.Text =
+	tostring(SEARCH_RANGE)
+
+rangeBox.ClearTextOnFocus = false
+
+rangeBox.BackgroundColor3 =
+	Color3.fromRGB(45, 45, 50)
+
+rangeBox.TextColor3 =
+	Color3.new(1, 1, 1)
+
+rangeBox.Font =
+	Enum.Font.Gotham
+
+rangeBox.TextSize = 13
+
+rangeBox.BorderSizePixel = 0
+
+rangeBox.Parent = main
+
+local rc =
+	Instance.new("UICorner")
+
+rc.CornerRadius =
+	UDim.new(0, 8)
+
+rc.Parent = rangeBox
+
 -- DISTANCE
---========================================================
-
 local distanceBox =
 	Instance.new("TextBox")
 
 distanceBox.Size =
-	UDim2.fromOffset(130,38)
+	UDim2.fromOffset(140, 38)
 
 distanceBox.Position =
-	UDim2.fromOffset(15,100)
+	UDim2.fromOffset(170, 100)
 
 distanceBox.Text =
 	tostring(ATTACK_DISTANCE)
@@ -483,15 +582,15 @@ distanceBox.Text =
 distanceBox.ClearTextOnFocus = false
 
 distanceBox.BackgroundColor3 =
-	Color3.fromRGB(45,45,50)
+	Color3.fromRGB(45, 45, 50)
 
 distanceBox.TextColor3 =
-	Color3.new(1,1,1)
+	Color3.new(1, 1, 1)
 
 distanceBox.Font =
 	Enum.Font.Gotham
 
-distanceBox.TextSize = 14
+distanceBox.TextSize = 13
 
 distanceBox.BorderSizePixel = 0
 
@@ -501,71 +600,63 @@ local dc =
 	Instance.new("UICorner")
 
 dc.CornerRadius =
-	UDim.new(0,8)
+	UDim.new(0, 8)
 
 dc.Parent = distanceBox
 
---========================================================
 -- TARGET
---========================================================
-
 local targetLabel =
 	Instance.new("TextLabel")
 
 targetLabel.Size =
-	UDim2.fromOffset(155,38)
+	UDim2.new(1, -30, 0, 28)
 
 targetLabel.Position =
-	UDim2.fromOffset(150,100)
+	UDim2.fromOffset(15, 150)
 
 targetLabel.BackgroundTransparency = 1
 
 targetLabel.TextColor3 =
-	Color3.fromRGB(255,220,80)
+	Color3.fromRGB(255, 220, 80)
 
 targetLabel.Font =
 	Enum.Font.GothamBold
 
 targetLabel.TextSize = 12
 
-targetLabel.TextWrapped = true
-
 targetLabel.Text =
 	"Target: Không có"
 
 targetLabel.Parent = main
 
---========================================================
 -- INFO
---========================================================
-
 local info =
 	Instance.new("TextLabel")
 
 info.Size =
-	UDim2.new(1,-30,0,30)
+	UDim2.new(1, -30, 0, 25)
 
 info.Position =
-	UDim2.fromOffset(15,155)
+	UDim2.fromOffset(15, 180)
 
 info.BackgroundTransparency = 1
 
 info.Text =
-	"Auto Attack: ON  •  F1"
+	"Auto Click: ON  •  F1: Hide"
 
 info.TextColor3 =
-	Color3.fromRGB(190,190,190)
+	Color3.fromRGB(180, 180, 180)
 
 info.Font =
 	Enum.Font.Gotham
 
-info.TextSize = 12
+info.TextSize = 11
 
 info.Parent = main
 
---========================================================
--- GUI UPDATE
---========================================================
+--==================================================
+-- UPDATE GUI
+--==================================================
 
 local function updateGUI()
 
@@ -575,7 +666,7 @@ local function updateGUI()
 			"Auto Combat: ON"
 
 		toggle.BackgroundColor3 =
-			Color3.fromRGB(0,170,110)
+			Color3.fromRGB(0, 170, 110)
 
 	else
 
@@ -583,7 +674,7 @@ local function updateGUI()
 			"Auto Combat: OFF"
 
 		toggle.BackgroundColor3 =
-			Color3.fromRGB(55,55,60)
+			Color3.fromRGB(60, 60, 65)
 
 	end
 end
@@ -600,9 +691,33 @@ toggle.MouseButton1Click:Connect(function()
 	updateGUI()
 end)
 
---========================================================
+--==================================================
+-- RANGE
+--==================================================
+
+rangeBox.FocusLost:Connect(function()
+
+	local value =
+		tonumber(rangeBox.Text)
+
+	if value then
+
+		SEARCH_RANGE =
+			math.clamp(
+				value,
+				50,
+				2000
+			)
+
+	end
+
+	rangeBox.Text =
+		tostring(SEARCH_RANGE)
+end)
+
+--==================================================
 -- DISTANCE
---========================================================
+--==================================================
 
 distanceBox.FocusLost:Connect(function()
 
@@ -612,22 +727,21 @@ distanceBox.FocusLost:Connect(function()
 	if value then
 
 		ATTACK_DISTANCE =
-			math.clamp(value,1.5,8)
-
-		distanceBox.Text =
-			tostring(ATTACK_DISTANCE)
-
-	else
-
-		distanceBox.Text =
-			tostring(ATTACK_DISTANCE)
+			math.clamp(
+				value,
+				2,
+				8
+			)
 
 	end
+
+	distanceBox.Text =
+		tostring(ATTACK_DISTANCE)
 end)
 
---========================================================
+--==================================================
 -- TARGET DISPLAY
---========================================================
+--==================================================
 
 task.spawn(function()
 
@@ -651,9 +765,9 @@ task.spawn(function()
 	end
 end)
 
---========================================================
+--==================================================
 -- F1
---========================================================
+--==================================================
 
 UserInputService.InputBegan:Connect(function(
 	input,
@@ -673,9 +787,9 @@ UserInputService.InputBegan:Connect(function(
 	end
 end)
 
---========================================================
+--==================================================
 -- RESPAWN
---========================================================
+--==================================================
 
 player.CharacterAdded:Connect(function()
 
