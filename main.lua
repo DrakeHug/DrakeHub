@@ -69,7 +69,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -20, 1, 0)
 Title.Position = UDim2.fromOffset(10, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "⚡ Drake Speed"
+Title.Text = "Drake"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 18
@@ -164,7 +164,7 @@ end
 local function updateGUI()
 	if speedEnabled then
 
-		Toggle.Text = "⚡ Speed: ON"
+		Toggle.Text = "⚡Speed: On"
 		Toggle.BackgroundColor3 = Color3.fromRGB(0, 170, 110)
 
 		Status.Text = "Speed đang chạy: " .. tostring(SPEED)
@@ -172,7 +172,7 @@ local function updateGUI()
 
 	else
 
-		Toggle.Text = "Speed: OFF"
+		Toggle.Text = "Speed: Off"
 		Toggle.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 
 		Status.Text = "Speed đã tắt"
