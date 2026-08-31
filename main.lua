@@ -4,7 +4,7 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
 --// SETTINGS
-local SPEED = 80
+local SPEED = 25
 local speedEnabled = true -- tự bật khi vào server
 
 --// GUI
