@@ -1,6 +1,7 @@
 --==================================================
 -- DRAKE SPEED - ROBLOX STUDIO
 --==================================================
+print("[DrakeSpeed] SCRIPT STARTED")
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
