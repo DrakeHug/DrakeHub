@@ -1,0 +1,670 @@
+--// AUTO DUNGEON COMBAT
+--// Đặt LocalScript này vào:
+--// StarterPlayer > StarterPlayerScripts
+--
+--// Quái phải nằm trong:
+--// Workspace > Mobs
+--
+--// Mỗi quái cần:
+--// Humanoid
+--// HumanoidRootPart
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+--==================================================
+-- SETTINGS
+--==================================================
+
+local AUTO_COMBAT = true
+
+local RANGE = 100
+local HEIGHT = 8
+
+local ATTACK_DAMAGE = 20
+local Q_DAMAGE = 50
+local E_DAMAGE = 80
+
+local ATTACK_COOLDOWN = 0.5
+local Q_COOLDOWN = 3
+local E_COOLDOWN = 5
+
+local lastAttack = 0
+local lastQ = 0
+local lastE = 0
+
+--==================================================
+-- CHARACTER
+--==================================================
+
+local function getCharacter()
+	return player.Character
+end
+
+local function getRoot()
+	local character = getCharacter()
+
+	if not character then
+		return nil
+	end
+
+	return character:FindFirstChild("HumanoidRootPart")
+end
+
+--==================================================
+-- TÌM QUÁI GẦN NHẤT
+--==================================================
+
+local function getNearestMob()
+	local root = getRoot()
+
+	if not root then
+		return nil
+	end
+
+	local mobsFolder = workspace:FindFirstChild("Mobs")
+
+	if not mobsFolder then
+		return nil
+	end
+
+	local nearestMob = nil
+	local nearestDistance = RANGE
+
+	for _, mob in ipairs(mobsFolder:GetChildren()) do
+
+		local humanoid = mob:FindFirstChildOfClass("Humanoid")
+		local mobRoot = mob:FindFirstChild("HumanoidRootPart")
+
+		if humanoid
+			and mobRoot
+			and humanoid.Health > 0 then
+
+			local distance =
+				(root.Position - mobRoot.Position).Magnitude
+
+			if distance < nearestDistance then
+				nearestDistance = distance
+				nearestMob = mob
+			end
+		end
+	end
+
+	return nearestMob
+end
+
+--==================================================
+-- BAY / TELE TRÊN ĐẦU QUÁI
+--==================================================
+
+local function moveAboveMob(mob)
+	local root = getRoot()
+
+	if not root then
+		return
+	end
+
+	if not mob then
+		return
+	end
+
+	local mobRoot = mob:FindFirstChild("HumanoidRootPart")
+
+	if not mobRoot then
+		return
+	end
+
+	local targetPosition =
+		mobRoot.Position + Vector3.new(0, HEIGHT, 0)
+
+	root.CFrame = CFrame.lookAt(
+		targetPosition,
+		mobRoot.Position
+	)
+end
+
+--==================================================
+-- GÂY DAMAGE
+--==================================================
+
+local function damageMob(mob, damage)
+	if not mob then
+		return
+	end
+
+	local humanoid =
+		mob:FindFirstChildOfClass("Humanoid")
+
+	if not humanoid then
+		return
+	end
+
+	if humanoid.Health <= 0 then
+		return
+	end
+
+	humanoid:TakeDamage(damage)
+end
+
+--==================================================
+-- AUTO ATTACK
+--==================================================
+
+local function attack(mob)
+	if os.clock() - lastAttack < ATTACK_COOLDOWN then
+		return
+	end
+
+	lastAttack = os.clock()
+
+	damageMob(mob, ATTACK_DAMAGE)
+end
+
+--==================================================
+-- Q SKILL
+--==================================================
+
+local function useQ(mob)
+	if os.clock() - lastQ < Q_COOLDOWN then
+		return
+	end
+
+	lastQ = os.clock()
+
+	damageMob(mob, Q_DAMAGE)
+
+	-- Hiệu ứng đơn giản
+	local root = mob:FindFirstChild("HumanoidRootPart")
+
+	if root then
+
+		local effect = Instance.new("Part")
+
+		effect.Shape = Enum.PartType.Ball
+		effect.Size = Vector3.new(4,4,4)
+		effect.Material = Enum.Material.Neon
+		effect.Color = Color3.fromRGB(0,170,255)
+
+		effect.Anchored = true
+		effect.CanCollide = false
+
+		effect.CFrame = root.CFrame
+
+		effect.Parent = workspace
+
+		task.delay(0.15, function()
+			if effect then
+				effect:Destroy()
+			end
+		end)
+	end
+end
+
+--==================================================
+-- E SKILL
+--==================================================
+
+local function useE(mob)
+	if os.clock() - lastE < E_COOLDOWN then
+		return
+	end
+
+	lastE = os.clock()
+
+	damageMob(mob, E_DAMAGE)
+
+	-- Hiệu ứng đơn giản
+	local root = mob:FindFirstChild("HumanoidRootPart")
+
+	if root then
+
+		local effect = Instance.new("Explosion")
+
+		effect.Position = root.Position
+		effect.BlastRadius = 0
+		effect.BlastPressure = 0
+
+		effect.Parent = workspace
+	end
+end
+
+--==================================================
+-- AUTO COMBAT LOOP
+--==================================================
+
+RunService.Heartbeat:Connect(function()
+
+	if not AUTO_COMBAT then
+		return
+	end
+
+	local mob = getNearestMob()
+
+	if not mob then
+		return
+	end
+
+	-- Bay trên đầu
+	moveAboveMob(mob)
+
+	-- Đánh thường
+	attack(mob)
+end)
+
+--==================================================
+-- Q / E
+--==================================================
+
+UserInputService.InputBegan:Connect(function(input, processed)
+
+	if processed then
+		return
+	end
+
+	if not AUTO_COMBAT then
+		return
+	end
+
+	local mob = getNearestMob()
+
+	if not mob then
+		return
+	end
+
+	if input.KeyCode == Enum.KeyCode.Q then
+
+		useQ(mob)
+
+	elseif input.KeyCode == Enum.KeyCode.E then
+
+		useE(mob)
+
+	end
+end)
+
+--==================================================
+-- GUI
+--==================================================
+
+local gui = Instance.new("ScreenGui")
+
+gui.Name = "AutoDungeonGUI"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- MAIN
+local main = Instance.new("Frame")
+
+main.Size = UDim2.fromOffset(320, 210)
+main.Position = UDim2.new(0.5, -160, 0.5, -105)
+
+main.BackgroundColor3 =
+	Color3.fromRGB(20,20,20)
+
+main.BorderSizePixel = 0
+main.Parent = gui
+
+Instance.new("UICorner", main).CornerRadius =
+	UDim.new(0,12)
+
+-- GRADIENT
+local gradient = Instance.new("UIGradient")
+
+gradient.Color = ColorSequence.new({
+
+	ColorSequenceKeypoint.new(
+		0,
+		Color3.fromRGB(0,255,150)
+	),
+
+	ColorSequenceKeypoint.new(
+		1,
+		Color3.fromRGB(0,100,255)
+	)
+
+})
+
+gradient.Rotation = 45
+gradient.Parent = main
+
+--==================================================
+-- TITLE
+--==================================================
+
+local top = Instance.new("Frame")
+
+top.Size = UDim2.new(1,0,0,42)
+top.BackgroundColor3 =
+	Color3.fromRGB(15,15,15)
+
+top.BackgroundTransparency = 0.15
+top.BorderSizePixel = 0
+top.Parent = main
+
+local title = Instance.new("TextLabel")
+
+title.Size = UDim2.new(1,-20,1,0)
+title.Position = UDim2.fromOffset(10,0)
+
+title.BackgroundTransparency = 1
+
+title.Text = "⚔ Auto Dungeon"
+
+title.TextColor3 =
+	Color3.new(1,1,1)
+
+title.Font =
+	Enum.Font.GothamBold
+
+title.TextSize = 18
+
+title.TextXAlignment =
+	Enum.TextXAlignment.Left
+
+title.Parent = top
+
+--==================================================
+-- TOGGLE
+--==================================================
+
+local toggle = Instance.new("TextButton")
+
+toggle.Size =
+	UDim2.fromOffset(290,42)
+
+toggle.Position =
+	UDim2.fromOffset(15,52)
+
+toggle.Font =
+	Enum.Font.GothamBold
+
+toggle.TextSize = 15
+
+toggle.TextColor3 =
+	Color3.new(1,1,1)
+
+toggle.Parent = main
+
+Instance.new("UICorner", toggle).CornerRadius =
+	UDim.new(0,8)
+
+--==================================================
+-- HEIGHT BOX
+--==================================================
+
+local heightBox = Instance.new("TextBox")
+
+heightBox.Size =
+	UDim2.fromOffset(135,40)
+
+heightBox.Position =
+	UDim2.fromOffset(15,105)
+
+heightBox.Text =
+	tostring(HEIGHT)
+
+heightBox.PlaceholderText =
+	"Height"
+
+heightBox.ClearTextOnFocus = false
+
+heightBox.BackgroundColor3 =
+	Color3.fromRGB(40,40,45)
+
+heightBox.TextColor3 =
+	Color3.new(1,1,1)
+
+heightBox.Font =
+	Enum.Font.Gotham
+
+heightBox.TextSize = 14
+
+heightBox.Parent = main
+
+Instance.new("UICorner", heightBox).CornerRadius =
+	UDim.new(0,8)
+
+--==================================================
+-- STATUS
+--==================================================
+
+local status = Instance.new("TextLabel")
+
+status.Size =
+	UDim2.fromOffset(145,40)
+
+status.Position =
+	UDim2.fromOffset(160,105)
+
+status.BackgroundTransparency = 1
+
+status.TextColor3 =
+	Color3.fromRGB(220,220,220)
+
+status.Font =
+	Enum.Font.Gotham
+
+status.TextSize = 13
+
+status.Text = "Đang bật"
+
+status.Parent = main
+
+--==================================================
+-- TARGET LABEL
+--==================================================
+
+local targetLabel = Instance.new("TextLabel")
+
+targetLabel.Size =
+	UDim2.new(1,-30,0,30)
+
+targetLabel.Position =
+	UDim2.fromOffset(15,155)
+
+targetLabel.BackgroundTransparency = 1
+
+targetLabel.TextColor3 =
+	Color3.fromRGB(230,230,230)
+
+targetLabel.Font =
+	Enum.Font.Gotham
+
+targetLabel.TextSize = 13
+
+targetLabel.Text = "Target: Không có"
+
+targetLabel.Parent = main
+
+--==================================================
+-- UPDATE GUI
+--==================================================
+
+local function updateGUI()
+
+	if AUTO_COMBAT then
+
+		toggle.Text =
+			"Auto Combat: ON"
+
+		toggle.BackgroundColor3 =
+			Color3.fromRGB(0,170,110)
+
+		status.Text =
+			"Q = Skill 1 | E = Skill 2"
+
+	else
+
+		toggle.Text =
+			"Auto Combat: OFF"
+
+		toggle.BackgroundColor3 =
+			Color3.fromRGB(55,55,60)
+
+		status.Text =
+			"Đang tắt"
+
+	end
+end
+
+toggle.MouseButton1Click:Connect(function()
+
+	AUTO_COMBAT = not AUTO_COMBAT
+
+	updateGUI()
+
+end)
+
+--==================================================
+-- CHANGE HEIGHT
+--==================================================
+
+heightBox.FocusLost:Connect(function()
+
+	local value =
+		tonumber(heightBox.Text)
+
+	if value then
+
+		HEIGHT =
+			math.clamp(value,2,30)
+
+		heightBox.Text =
+			tostring(HEIGHT)
+
+	else
+
+		heightBox.Text =
+			tostring(HEIGHT)
+
+	end
+end)
+
+--==================================================
+-- UPDATE TARGET NAME
+--==================================================
+
+RunService.Heartbeat:Connect(function()
+
+	if not AUTO_COMBAT then
+		targetLabel.Text = "Target: Không có"
+		return
+	end
+
+	local mob = getNearestMob()
+
+	if mob then
+		targetLabel.Text =
+			"Target: " .. mob.Name
+	else
+		targetLabel.Text =
+			"Target: Không có"
+	end
+end)
+
+--==================================================
+-- F1 OPEN / CLOSE
+--==================================================
+
+UserInputService.InputBegan:Connect(function(input, processed)
+
+	if processed then
+		return
+	end
+
+	if input.KeyCode == Enum.KeyCode.F1 then
+
+		main.Visible =
+			not main.Visible
+
+	end
+end)
+
+--==================================================
+-- DRAG GUI
+--==================================================
+
+local dragging = false
+local dragStart
+local startPos
+
+top.InputBegan:Connect(function(input)
+
+	if input.UserInputType ==
+		Enum.UserInputType.MouseButton1
+
+		or input.UserInputType ==
+		Enum.UserInputType.Touch then
+
+		dragging = true
+
+		dragStart =
+			input.Position
+
+		startPos =
+			main.Position
+
+		input.Changed:Connect(function()
+
+			if input.UserInputState ==
+				Enum.UserInputState.End then
+
+				dragging = false
+
+			end
+		end)
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+	if not dragging then
+		return
+	end
+
+	if input.UserInputType ~=
+		Enum.UserInputType.MouseMovement
+
+		and input.UserInputType ~=
+		Enum.UserInputType.Touch then
+
+		return
+	end
+
+	local delta =
+		input.Position - dragStart
+
+	main.Position =
+		UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+end)
+
+--==================================================
+-- RESPAWN
+--==================================================
+
+player.CharacterAdded:Connect(function(character)
+
+	character:WaitForChild("Humanoid")
+	character:WaitForChild("HumanoidRootPart")
+
+	task.wait(0.5)
+
+	AUTO_COMBAT = true
+
+	updateGUI()
+
+end)
+
+--==================================================
+-- START
+--==================================================
+
+updateGUI()
