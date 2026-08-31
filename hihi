@@ -1,14 +1,19 @@
+--========================================================
+-- AUTO DUNGEON - 1 SCRIPT
+-- Tự bật khi chạy
+-- Không cần room1/room2/room3...
+-- Tìm mọi enemyFolder trong Workspace
+--========================================================
+
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local remote = ReplicatedStorage:WaitForChild("AutoCombat")
 
---==================================================
+--========================================================
 -- SETTINGS
---==================================================
+--========================================================
 
 local ENABLED = true
 
@@ -18,9 +23,9 @@ local ATTACK_DISTANCE = 3
 local TARGET_UPDATE = 0.25
 local ATTACK_COOLDOWN = 0.5
 
---==================================================
+--========================================================
 -- VARIABLES
---==================================================
+--========================================================
 
 local currentTarget = nil
 local enemyFolders = {}
@@ -28,9 +33,9 @@ local enemyFolders = {}
 local targetTimer = 0
 local attackTimer = 0
 
---==================================================
--- PLAYER
---==================================================
+--========================================================
+-- CHARACTER
+--========================================================
 
 local function getCharacter()
 	return player.Character
@@ -47,9 +52,9 @@ local function getPlayerRoot()
 	return character:FindFirstChild("HumanoidRootPart")
 end
 
---==================================================
--- ENEMY
---==================================================
+--========================================================
+-- TÌM ROOT NPC
+--========================================================
 
 local function getEnemyRoot(enemy)
 
@@ -57,6 +62,7 @@ local function getEnemyRoot(enemy)
 		return nil
 	end
 
+	-- Ưu tiên HumanoidRootPart
 	local root =
 		enemy:FindFirstChild("HumanoidRootPart")
 
@@ -64,26 +70,29 @@ local function getEnemyRoot(enemy)
 		return root
 	end
 
+	-- Nếu có PrimaryPart
 	if enemy.PrimaryPart then
 		return enemy.PrimaryPart
 	end
 
-	-- Nếu không có HumanoidRootPart,
-	-- lấy BasePart đầu tiên
-	for _, object in ipairs(enemy:GetDescendants()) do
+	-- Fallback: tìm BasePart
+	for _, obj in ipairs(enemy:GetDescendants()) do
 
-		if object:IsA("BasePart") then
-			return object
+		if obj:IsA("BasePart") then
+			return obj
 		end
-
 	end
 
 	return nil
 end
 
+--========================================================
+-- KIỂM TRA NPC
+--========================================================
+
 local function isEnemy(enemy)
 
-	if not enemy:IsA("Model") then
+	if not enemy or not enemy:IsA("Model") then
 		return false
 	end
 
@@ -98,62 +107,61 @@ local function isEnemy(enemy)
 		return false
 	end
 
+	-- Không target người chơi
 	if Players:GetPlayerFromCharacter(enemy) then
 		return false
 	end
 
-	local root =
-		getEnemyRoot(enemy)
-
-	if not root then
+	if not getEnemyRoot(enemy) then
 		return false
 	end
 
 	return true
 end
 
---==================================================
--- CACHE ENEMY FOLDER
---==================================================
+--========================================================
+-- TÌM TẤT CẢ enemyFolder
+--========================================================
 
 local function rebuildEnemyFolders()
 
 	table.clear(enemyFolders)
 
-	for _, object in ipairs(workspace:GetDescendants()) do
+	for _, obj in ipairs(workspace:GetDescendants()) do
 
-		if object:IsA("Folder")
-			and object.Name == "enemyFolder" then
+		if obj:IsA("Folder")
+			and obj.Name == "enemyFolder" then
 
-			table.insert(enemyFolders, object)
-
+			table.insert(enemyFolders, obj)
 		end
 	end
 end
 
 rebuildEnemyFolders()
 
-workspace.DescendantAdded:Connect(function(object)
+-- Map/room mới được tạo
+workspace.DescendantAdded:Connect(function(obj)
 
-	if object:IsA("Folder")
-		and object.Name == "enemyFolder" then
+	if obj:IsA("Folder")
+		and obj.Name == "enemyFolder" then
 
-		rebuildEnemyFolders()
+		table.insert(enemyFolders, obj)
 	end
 end)
 
-workspace.DescendantRemoving:Connect(function(object)
+workspace.DescendantRemoving:Connect(function(obj)
 
-	if object:IsA("Folder")
-		and object.Name == "enemyFolder" then
+	for i = #enemyFolders, 1, -1 do
 
-		rebuildEnemyFolders()
+		if enemyFolders[i] == obj then
+			table.remove(enemyFolders, i)
+		end
 	end
 end)
 
---==================================================
--- FIND NEAREST ENEMY
---==================================================
+--========================================================
+-- TÌM QUÁI GẦN NHẤT
+--========================================================
 
 local function findNearestEnemy()
 
@@ -169,24 +177,31 @@ local function findNearestEnemy()
 
 	for _, folder in ipairs(enemyFolders) do
 
-		if folder.Parent then
+		if folder and folder.Parent then
 
-			for _, enemy in ipairs(folder:GetChildren()) do
+			-- Không quan trọng room tên gì
+			for _, obj in ipairs(folder:GetDescendants()) do
 
-				if isEnemy(enemy) then
+				if obj:IsA("Model")
+					and isEnemy(obj) then
 
-					local enemyRoot =
-						getEnemyRoot(enemy)
+					local root =
+						getEnemyRoot(obj)
 
-					local distance =
-						(playerRoot.Position
-						- enemyRoot.Position).Magnitude
+					if root then
 
-					if distance < nearestDistance then
+						local distance =
+							(
+								playerRoot.Position
+								- root.Position
+							).Magnitude
 
-						nearestDistance = distance
-						nearest = enemy
+						if distance < nearestDistance then
 
+							nearestDistance = distance
+							nearest = obj
+
+						end
 					end
 				end
 			end
@@ -196,15 +211,18 @@ local function findNearestEnemy()
 	return nearest
 end
 
---==================================================
--- MOVE NEAR ENEMY
---==================================================
+--========================================================
+-- TELEPORT / ÁP SÁT
+--========================================================
 
-local function moveNearEnemy(enemy)
+local function moveToEnemy(enemy)
 
 	if not isEnemy(enemy) then
 		return
 	end
+
+	local character =
+		getCharacter()
 
 	local playerRoot =
 		getPlayerRoot()
@@ -212,17 +230,21 @@ local function moveNearEnemy(enemy)
 	local enemyRoot =
 		getEnemyRoot(enemy)
 
-	if not playerRoot or not enemyRoot then
+	if not character
+		or not playerRoot
+		or not enemyRoot then
+
 		return
 	end
 
 	local difference =
-		playerRoot.Position - enemyRoot.Position
+		playerRoot.Position
+		- enemyRoot.Position
 
 	local distance =
 		difference.Magnitude
 
-	-- Đã đủ gần
+	-- Đã gần đủ
 	if distance <= ATTACK_DISTANCE then
 
 		playerRoot.CFrame =
@@ -237,64 +259,64 @@ local function moveNearEnemy(enemy)
 	local direction
 
 	if distance > 0.01 then
-		direction = difference.Unit
+
+		direction =
+			difference.Unit
+
 	else
-		direction = Vector3.new(0, 0, 1)
+
+		direction =
+			Vector3.new(0, 0, 1)
+
 	end
 
+	-- Đứng cách enemy 3 studs
 	local position =
 		enemyRoot.Position
 	+ direction * ATTACK_DISTANCE
 
-	-- Không đổi độ cao
+	-- Giữ độ cao nhân vật
 	position = Vector3.new(
 		position.X,
 		playerRoot.Position.Y,
 		position.Z
 	)
 
-	playerRoot.CFrame =
+	character:PivotTo(
 		CFrame.lookAt(
 			position,
 			enemyRoot.Position
 		)
+	)
 end
 
---==================================================
--- AUTO ATTACK
---==================================================
+--========================================================
+-- AUTO CLICK / TOOL
+--========================================================
 
-local function attackTarget()
+local function autoAttack()
 
-	if not currentTarget then
-		return
-	end
-
-	if not isEnemy(currentTarget) then
-		return
-	end
-
-	-- Gửi attack đến server
-	remote:FireServer(currentTarget)
-
-	-- Nếu đang cầm Tool thì kích hoạt Tool
 	local character =
 		getCharacter()
 
-	if character then
+	if not character then
+		return
+	end
 
-		local tool =
-			character:FindFirstChildOfClass("Tool")
+	local tool =
+		character:FindFirstChildOfClass("Tool")
 
-		if tool then
-			tool:Activate()
-		end
+	if tool then
+
+		-- Kích hoạt attack của Tool
+		tool:Activate()
+
 	end
 end
 
---==================================================
+--========================================================
 -- MAIN LOOP
---==================================================
+--========================================================
 
 RunService.Heartbeat:Connect(function(delta)
 
@@ -305,7 +327,7 @@ RunService.Heartbeat:Connect(function(delta)
 	targetTimer += delta
 	attackTimer += delta
 
-	-- Không tìm target mỗi frame
+	-- Tìm target định kỳ để giảm lag
 	if targetTimer >= TARGET_UPDATE then
 
 		targetTimer = 0
@@ -322,13 +344,13 @@ RunService.Heartbeat:Connect(function(delta)
 	if currentTarget
 		and isEnemy(currentTarget) then
 
-		moveNearEnemy(currentTarget)
+		moveToEnemy(currentTarget)
 
 		if attackTimer >= ATTACK_COOLDOWN then
 
 			attackTimer = 0
 
-			attackTarget()
+			autoAttack()
 
 		end
 
@@ -339,9 +361,9 @@ RunService.Heartbeat:Connect(function(delta)
 	end
 end)
 
---==================================================
+--========================================================
 -- GUI
---==================================================
+--========================================================
 
 local gui =
 	Instance.new("ScreenGui")
@@ -358,12 +380,12 @@ local main =
 	Instance.new("Frame")
 
 main.Size =
-	UDim2.fromOffset(310, 205)
+	UDim2.fromOffset(320, 205)
 
 main.Position =
 	UDim2.new(
 		0.5,
-		-155,
+		-160,
 		0.5,
 		-102
 	)
@@ -383,17 +405,20 @@ corner.CornerRadius =
 
 corner.Parent = main
 
+--========================================================
 -- TITLE
+--========================================================
+
 local title =
 	Instance.new("TextLabel")
 
 title.Size =
-	UDim2.new(1,0,0,40)
+	UDim2.new(1,0,0,42)
 
 title.BackgroundTransparency = 1
 
 title.Text =
-	"⚔ Auto Dungeon"
+	"⚔ AUTO DUNGEON"
 
 title.TextColor3 =
 	Color3.new(1,1,1)
@@ -405,12 +430,15 @@ title.TextSize = 18
 
 title.Parent = main
 
+--========================================================
 -- TOGGLE
+--========================================================
+
 local toggle =
 	Instance.new("TextButton")
 
 toggle.Size =
-	UDim2.fromOffset(280,40)
+	UDim2.fromOffset(290,40)
 
 toggle.Position =
 	UDim2.fromOffset(15,48)
@@ -436,12 +464,15 @@ toggleCorner.CornerRadius =
 toggleCorner.Parent =
 	toggle
 
+--========================================================
 -- DISTANCE
+--========================================================
+
 local distanceBox =
 	Instance.new("TextBox")
 
 distanceBox.Size =
-	UDim2.fromOffset(125,38)
+	UDim2.fromOffset(130,38)
 
 distanceBox.Position =
 	UDim2.fromOffset(15,100)
@@ -472,15 +503,17 @@ local dc =
 dc.CornerRadius =
 	UDim.new(0,8)
 
-dc.Parent =
-	distanceBox
+dc.Parent = distanceBox
 
+--========================================================
 -- TARGET
+--========================================================
+
 local targetLabel =
 	Instance.new("TextLabel")
 
 targetLabel.Size =
-	UDim2.fromOffset(145,38)
+	UDim2.fromOffset(155,38)
 
 targetLabel.Position =
 	UDim2.fromOffset(150,100)
@@ -500,10 +533,12 @@ targetLabel.TextWrapped = true
 targetLabel.Text =
 	"Target: Không có"
 
-targetLabel.Parent =
-	main
+targetLabel.Parent = main
 
+--========================================================
 -- INFO
+--========================================================
+
 local info =
 	Instance.new("TextLabel")
 
@@ -516,7 +551,7 @@ info.Position =
 info.BackgroundTransparency = 1
 
 info.Text =
-	"Auto Attack • F1"
+	"Auto Attack: ON  •  F1"
 
 info.TextColor3 =
 	Color3.fromRGB(190,190,190)
@@ -528,9 +563,9 @@ info.TextSize = 12
 
 info.Parent = main
 
---==================================================
--- GUI
---==================================================
+--========================================================
+-- GUI UPDATE
+--========================================================
 
 local function updateGUI()
 
@@ -565,6 +600,10 @@ toggle.MouseButton1Click:Connect(function()
 	updateGUI()
 end)
 
+--========================================================
+-- DISTANCE
+--========================================================
+
 distanceBox.FocusLost:Connect(function()
 
 	local value =
@@ -586,9 +625,9 @@ distanceBox.FocusLost:Connect(function()
 	end
 end)
 
---==================================================
--- TARGET TEXT
---==================================================
+--========================================================
+-- TARGET DISPLAY
+--========================================================
 
 task.spawn(function()
 
@@ -612,9 +651,9 @@ task.spawn(function()
 	end
 end)
 
---==================================================
+--========================================================
 -- F1
---==================================================
+--========================================================
 
 UserInputService.InputBegan:Connect(function(
 	input,
@@ -634,9 +673,9 @@ UserInputService.InputBegan:Connect(function(
 	end
 end)
 
---==================================================
+--========================================================
 -- RESPAWN
---==================================================
+--========================================================
 
 player.CharacterAdded:Connect(function()
 
@@ -651,4 +690,4 @@ end)
 
 updateGUI()
 
-print("Auto Dungeon loaded")
+print("AUTO DUNGEON: ON")
