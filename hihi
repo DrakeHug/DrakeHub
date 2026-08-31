@@ -15,21 +15,21 @@ local ENABLED = true
 local SEARCH_RANGE = 150
 local ATTACK_DISTANCE = 3
 
-local TARGET_INTERVAL = 0.25
-local ATTACK_INTERVAL = 0.5
+local TARGET_UPDATE = 0.25
+local ATTACK_COOLDOWN = 0.5
 
 --==================================================
 -- VARIABLES
 --==================================================
 
-local enemyFolders = {}
 local currentTarget = nil
+local enemyFolders = {}
 
 local targetTimer = 0
 local attackTimer = 0
 
 --==================================================
--- CHARACTER
+-- PLAYER
 --==================================================
 
 local function getCharacter()
@@ -37,6 +37,7 @@ local function getCharacter()
 end
 
 local function getPlayerRoot()
+
 	local character = getCharacter()
 
 	if not character then
@@ -47,40 +48,49 @@ local function getPlayerRoot()
 end
 
 --==================================================
--- ENEMY CHECK
+-- ENEMY
 --==================================================
 
-local function getEnemyRoot(model)
-	if not model or not model:IsA("Model") then
+local function getEnemyRoot(enemy)
+
+	if not enemy or not enemy:IsA("Model") then
 		return nil
 	end
 
-	local humanoid =
-		model:FindFirstChildOfClass("Humanoid")
-
 	local root =
-		model:FindFirstChild("HumanoidRootPart")
+		enemy:FindFirstChild("HumanoidRootPart")
 
-	if humanoid and root then
+	if root and root:IsA("BasePart") then
 		return root
+	end
+
+	if enemy.PrimaryPart then
+		return enemy.PrimaryPart
+	end
+
+	-- Nếu không có HumanoidRootPart,
+	-- lấy BasePart đầu tiên
+	for _, object in ipairs(enemy:GetDescendants()) do
+
+		if object:IsA("BasePart") then
+			return object
+		end
+
 	end
 
 	return nil
 end
 
-local function isEnemy(model)
+local function isEnemy(enemy)
 
-	if not model:IsA("Model") then
+	if not enemy:IsA("Model") then
 		return false
 	end
 
 	local humanoid =
-		model:FindFirstChildOfClass("Humanoid")
+		enemy:FindFirstChildOfClass("Humanoid")
 
-	local root =
-		model:FindFirstChild("HumanoidRootPart")
-
-	if not humanoid or not root then
+	if not humanoid then
 		return false
 	end
 
@@ -88,8 +98,14 @@ local function isEnemy(model)
 		return false
 	end
 
-	-- Không target Player
-	if Players:GetPlayerFromCharacter(model) then
+	if Players:GetPlayerFromCharacter(enemy) then
+		return false
+	end
+
+	local root =
+		getEnemyRoot(enemy)
+
+	if not root then
 		return false
 	end
 
@@ -97,10 +113,10 @@ local function isEnemy(model)
 end
 
 --==================================================
--- CACHE enemyFolder
+-- CACHE ENEMY FOLDER
 --==================================================
 
-local function rebuildFolders()
+local function rebuildEnemyFolders()
 
 	table.clear(enemyFolders)
 
@@ -115,14 +131,14 @@ local function rebuildFolders()
 	end
 end
 
-rebuildFolders()
+rebuildEnemyFolders()
 
 workspace.DescendantAdded:Connect(function(object)
 
 	if object:IsA("Folder")
 		and object.Name == "enemyFolder" then
 
-		rebuildFolders()
+		rebuildEnemyFolders()
 	end
 end)
 
@@ -131,12 +147,12 @@ workspace.DescendantRemoving:Connect(function(object)
 	if object:IsA("Folder")
 		and object.Name == "enemyFolder" then
 
-		rebuildFolders()
+		rebuildEnemyFolders()
 	end
 end)
 
 --==================================================
--- FIND NEAREST
+-- FIND NEAREST ENEMY
 --==================================================
 
 local function findNearestEnemy()
@@ -155,20 +171,21 @@ local function findNearestEnemy()
 
 		if folder.Parent then
 
-			for _, model in ipairs(folder:GetChildren()) do
+			for _, enemy in ipairs(folder:GetChildren()) do
 
-				if isEnemy(model) then
+				if isEnemy(enemy) then
 
-					local root =
-						getEnemyRoot(model)
+					local enemyRoot =
+						getEnemyRoot(enemy)
 
 					local distance =
-						(playerRoot.Position - root.Position).Magnitude
+						(playerRoot.Position
+						- enemyRoot.Position).Magnitude
 
 					if distance < nearestDistance then
 
 						nearestDistance = distance
-						nearest = model
+						nearest = enemy
 
 					end
 				end
@@ -180,7 +197,7 @@ local function findNearestEnemy()
 end
 
 --==================================================
--- MOVE TO ENEMY
+-- MOVE NEAR ENEMY
 --==================================================
 
 local function moveNearEnemy(enemy)
@@ -205,9 +222,9 @@ local function moveNearEnemy(enemy)
 	local distance =
 		difference.Magnitude
 
+	-- Đã đủ gần
 	if distance <= ATTACK_DISTANCE then
 
-		-- Chỉ xoay nhìn enemy
 		playerRoot.CFrame =
 			CFrame.lookAt(
 				playerRoot.Position,
@@ -227,9 +244,9 @@ local function moveNearEnemy(enemy)
 
 	local position =
 		enemyRoot.Position
-		+ direction * ATTACK_DISTANCE
+	+ direction * ATTACK_DISTANCE
 
-	-- Giữ độ cao hiện tại
+	-- Không đổi độ cao
 	position = Vector3.new(
 		position.X,
 		playerRoot.Position.Y,
@@ -247,7 +264,7 @@ end
 -- AUTO ATTACK
 --==================================================
 
-local function attack()
+local function attackTarget()
 
 	if not currentTarget then
 		return
@@ -257,10 +274,10 @@ local function attack()
 		return
 	end
 
-	-- Gọi server đánh
+	-- Gửi attack đến server
 	remote:FireServer(currentTarget)
 
-	-- Nếu đang cầm Tool thì kích hoạt animation/attack
+	-- Nếu đang cầm Tool thì kích hoạt Tool
 	local character =
 		getCharacter()
 
@@ -279,17 +296,17 @@ end
 -- MAIN LOOP
 --==================================================
 
-RunService.Heartbeat:Connect(function(deltaTime)
+RunService.Heartbeat:Connect(function(delta)
 
 	if not ENABLED then
 		return
 	end
 
-	targetTimer += deltaTime
-	attackTimer += deltaTime
+	targetTimer += delta
+	attackTimer += delta
 
-	-- Tìm target 4 lần/giây
-	if targetTimer >= TARGET_INTERVAL then
+	-- Không tìm target mỗi frame
+	if targetTimer >= TARGET_UPDATE then
 
 		targetTimer = 0
 
@@ -307,11 +324,12 @@ RunService.Heartbeat:Connect(function(deltaTime)
 
 		moveNearEnemy(currentTarget)
 
-		if attackTimer >= ATTACK_INTERVAL then
+		if attackTimer >= ATTACK_COOLDOWN then
 
 			attackTimer = 0
 
-			attack()
+			attackTarget()
+
 		end
 
 	else
@@ -325,105 +343,220 @@ end)
 -- GUI
 --==================================================
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "AutoCombatGUI"
-gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild("PlayerGui")
+local gui =
+	Instance.new("ScreenGui")
 
-local main = Instance.new("Frame")
-main.Size = UDim2.fromOffset(310, 200)
-main.Position = UDim2.new(0.5, -155, 0.5, -100)
-main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+gui.Name =
+	"AutoDungeonGUI"
+
+gui.ResetOnSpawn = false
+
+gui.Parent =
+	player:WaitForChild("PlayerGui")
+
+local main =
+	Instance.new("Frame")
+
+main.Size =
+	UDim2.fromOffset(310, 205)
+
+main.Position =
+	UDim2.new(
+		0.5,
+		-155,
+		0.5,
+		-102
+	)
+
+main.BackgroundColor3 =
+	Color3.fromRGB(20,20,25)
+
 main.BorderSizePixel = 0
+
 main.Parent = gui
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
+local corner =
+	Instance.new("UICorner")
+
+corner.CornerRadius =
+	UDim.new(0,12)
+
 corner.Parent = main
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 40)
+-- TITLE
+local title =
+	Instance.new("TextLabel")
+
+title.Size =
+	UDim2.new(1,0,0,40)
+
 title.BackgroundTransparency = 1
-title.Text = "⚔ Auto Combat"
-title.TextColor3 = Color3.new(1, 1, 1)
-title.Font = Enum.Font.GothamBold
+
+title.Text =
+	"⚔ Auto Dungeon"
+
+title.TextColor3 =
+	Color3.new(1,1,1)
+
+title.Font =
+	Enum.Font.GothamBold
+
 title.TextSize = 18
+
 title.Parent = main
 
-local toggle = Instance.new("TextButton")
-toggle.Size = UDim2.fromOffset(280, 40)
-toggle.Position = UDim2.fromOffset(15, 48)
+-- TOGGLE
+local toggle =
+	Instance.new("TextButton")
+
+toggle.Size =
+	UDim2.fromOffset(280,40)
+
+toggle.Position =
+	UDim2.fromOffset(15,48)
+
 toggle.BorderSizePixel = 0
-toggle.Font = Enum.Font.GothamBold
-toggle.TextColor3 = Color3.new(1, 1, 1)
+
+toggle.Font =
+	Enum.Font.GothamBold
+
 toggle.TextSize = 14
+
+toggle.TextColor3 =
+	Color3.new(1,1,1)
+
 toggle.Parent = main
 
-local toggleCorner = Instance.new("UICorner")
-toggleCorner.CornerRadius = UDim.new(0, 8)
-toggleCorner.Parent = toggle
+local toggleCorner =
+	Instance.new("UICorner")
 
-local distanceBox = Instance.new("TextBox")
-distanceBox.Size = UDim2.fromOffset(125, 38)
-distanceBox.Position = UDim2.fromOffset(15, 100)
-distanceBox.Text = tostring(ATTACK_DISTANCE)
+toggleCorner.CornerRadius =
+	UDim.new(0,8)
+
+toggleCorner.Parent =
+	toggle
+
+-- DISTANCE
+local distanceBox =
+	Instance.new("TextBox")
+
+distanceBox.Size =
+	UDim2.fromOffset(125,38)
+
+distanceBox.Position =
+	UDim2.fromOffset(15,100)
+
+distanceBox.Text =
+	tostring(ATTACK_DISTANCE)
+
 distanceBox.ClearTextOnFocus = false
-distanceBox.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
-distanceBox.TextColor3 = Color3.new(1, 1, 1)
-distanceBox.Font = Enum.Font.Gotham
+
+distanceBox.BackgroundColor3 =
+	Color3.fromRGB(45,45,50)
+
+distanceBox.TextColor3 =
+	Color3.new(1,1,1)
+
+distanceBox.Font =
+	Enum.Font.Gotham
+
 distanceBox.TextSize = 14
+
 distanceBox.BorderSizePixel = 0
+
 distanceBox.Parent = main
 
-local dc = Instance.new("UICorner")
-dc.CornerRadius = UDim.new(0, 8)
-dc.Parent = distanceBox
+local dc =
+	Instance.new("UICorner")
 
-local targetLabel = Instance.new("TextLabel")
-targetLabel.Size = UDim2.fromOffset(145, 38)
-targetLabel.Position = UDim2.fromOffset(150, 100)
+dc.CornerRadius =
+	UDim.new(0,8)
+
+dc.Parent =
+	distanceBox
+
+-- TARGET
+local targetLabel =
+	Instance.new("TextLabel")
+
+targetLabel.Size =
+	UDim2.fromOffset(145,38)
+
+targetLabel.Position =
+	UDim2.fromOffset(150,100)
+
 targetLabel.BackgroundTransparency = 1
-targetLabel.TextColor3 = Color3.fromRGB(255, 220, 80)
-targetLabel.Font = Enum.Font.GothamBold
-targetLabel.TextSize = 12
-targetLabel.TextWrapped = true
-targetLabel.Text = "Target: Không có"
-targetLabel.Parent = main
 
-local info = Instance.new("TextLabel")
-info.Size = UDim2.new(1, -30, 0, 25)
-info.Position = UDim2.fromOffset(15, 155)
+targetLabel.TextColor3 =
+	Color3.fromRGB(255,220,80)
+
+targetLabel.Font =
+	Enum.Font.GothamBold
+
+targetLabel.TextSize = 12
+
+targetLabel.TextWrapped = true
+
+targetLabel.Text =
+	"Target: Không có"
+
+targetLabel.Parent =
+	main
+
+-- INFO
+local info =
+	Instance.new("TextLabel")
+
+info.Size =
+	UDim2.new(1,-30,0,30)
+
+info.Position =
+	UDim2.fromOffset(15,155)
+
 info.BackgroundTransparency = 1
-info.Text = "Auto Attack • F1"
-info.TextColor3 = Color3.fromRGB(190, 190, 190)
-info.Font = Enum.Font.Gotham
+
+info.Text =
+	"Auto Attack • F1"
+
+info.TextColor3 =
+	Color3.fromRGB(190,190,190)
+
+info.Font =
+	Enum.Font.Gotham
+
 info.TextSize = 12
+
 info.Parent = main
 
 --==================================================
--- GUI UPDATE
+-- GUI
 --==================================================
 
 local function updateGUI()
 
 	if ENABLED then
 
-		toggle.Text = "Auto Combat: ON"
+		toggle.Text =
+			"Auto Combat: ON"
+
 		toggle.BackgroundColor3 =
-			Color3.fromRGB(0, 170, 110)
+			Color3.fromRGB(0,170,110)
 
 	else
 
-		toggle.Text = "Auto Combat: OFF"
+		toggle.Text =
+			"Auto Combat: OFF"
+
 		toggle.BackgroundColor3 =
-			Color3.fromRGB(55, 55, 60)
+			Color3.fromRGB(55,55,60)
 
 	end
 end
 
 toggle.MouseButton1Click:Connect(function()
 
-	ENABLED = not ENABLED
+	ENABLED =
+		not ENABLED
 
 	if not ENABLED then
 		currentTarget = nil
@@ -440,7 +573,7 @@ distanceBox.FocusLost:Connect(function()
 	if value then
 
 		ATTACK_DISTANCE =
-			math.clamp(value, 1.5, 8)
+			math.clamp(value,1.5,8)
 
 		distanceBox.Text =
 			tostring(ATTACK_DISTANCE)
@@ -454,7 +587,7 @@ distanceBox.FocusLost:Connect(function()
 end)
 
 --==================================================
--- TARGET LABEL
+-- TARGET TEXT
 --==================================================
 
 task.spawn(function()
@@ -483,13 +616,17 @@ end)
 -- F1
 --==================================================
 
-UserInputService.InputBegan:Connect(function(input, processed)
+UserInputService.InputBegan:Connect(function(
+	input,
+	processed
+)
 
 	if processed then
 		return
 	end
 
-	if input.KeyCode == Enum.KeyCode.F1 then
+	if input.KeyCode ==
+		Enum.KeyCode.F1 then
 
 		main.Visible =
 			not main.Visible
@@ -514,4 +651,4 @@ end)
 
 updateGUI()
 
-print("Auto Combat loaded")
+print("Auto Dungeon loaded")
