@@ -11,7 +11,7 @@ local player = Players.LocalPlayer
 -- SETTINGS
 --==================================================
 
-local SPEED = 24
+local SPEED = 20
 local speedEnabled = true -- TỰ BẬT KHI VÀO SERVER
 
 local MIN_SPEED = 16
