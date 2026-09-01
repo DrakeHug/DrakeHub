@@ -8,7 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local SpeedStore = DataStoreService:GetDataStore("DrakeSpeed_V1")
 
-local DEFAULT_SPEED = 20
+local DEFAULT_SPEED = 25
 local MIN_SPEED = 16
 local MAX_SPEED = 300
 
