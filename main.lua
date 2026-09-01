@@ -1,282 +1,81 @@
-```lua
 --==================================================
--- DRAKE SPEED - ROBLOX STUDIO
---==================================================
--- LocalScript
--- Đặt vào:
--- StarterPlayer > StarterPlayerScripts
+-- DRAKE SPEED - SERVER
 --==================================================
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Player = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui")
-
---==================================================
--- SETTINGS
---==================================================
-
-local SPEED = 20
+local DEFAULT_SPEED = 16
 local MIN_SPEED = 16
 local MAX_SPEED = 300
-local DEFAULT_SPEED = 16
-
-local SpeedEnabled = true
 
 --==================================================
--- XÓA GUI CŨ
+-- REMOTE EVENT
 --==================================================
 
-local OldGui = PlayerGui:FindFirstChild("DrakeSpeed")
+local Remote = ReplicatedStorage:FindFirstChild("DrakeSpeedRemote")
 
-if OldGui then
-	OldGui:Destroy()
+if not Remote then
+	Remote = Instance.new("RemoteEvent")
+	Remote.Name = "DrakeSpeedRemote"
+	Remote.Parent = ReplicatedStorage
 end
 
 --==================================================
--- SCREEN GUI
+-- PLAYER DATA
 --==================================================
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "DrakeSpeed"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = PlayerGui
-
---==================================================
--- MAIN
---==================================================
-
-local Main = Instance.new("Frame")
-Main.Name = "Main"
-Main.Size = UDim2.fromOffset(360, 190)
-Main.Position = UDim2.new(0.5, -180, 0.5, -95)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Main.BorderSizePixel = 0
-Main.Parent = ScreenGui
-
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 12)
-MainCorner.Parent = Main
-
---==================================================
--- GRADIENT
---==================================================
-
-local Gradient = Instance.new("UIGradient")
-Gradient.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(
-		0,
-		Color3.fromRGB(0, 255, 150)
-	),
-
-	ColorSequenceKeypoint.new(
-		1,
-		Color3.fromRGB(0, 120, 255)
-	)
-})
-
-Gradient.Rotation = 45
-Gradient.Parent = Main
-
---==================================================
--- TOP BAR
---==================================================
-
-local Top = Instance.new("Frame")
-Top.Name = "Top"
-Top.Size = UDim2.new(1, 0, 0, 45)
-Top.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-Top.BackgroundTransparency = 0.15
-Top.BorderSizePixel = 0
-Top.Parent = Main
-
-local TopCorner = Instance.new("UICorner")
-TopCorner.CornerRadius = UDim.new(0, 12)
-TopCorner.Parent = Top
-
---==================================================
--- TITLE
---==================================================
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -20, 1, 0)
-Title.Position = UDim2.fromOffset(10, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "Drake"
-Title.TextColor3 = Color3.new(1, 1, 1)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 18
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = Top
-
---==================================================
--- TOGGLE
---==================================================
-
-local Toggle = Instance.new("TextButton")
-Toggle.Name = "Toggle"
-Toggle.Size = UDim2.fromOffset(155, 45)
-Toggle.Position = UDim2.fromOffset(20, 65)
-Toggle.TextColor3 = Color3.new(1, 1, 1)
-Toggle.Font = Enum.Font.GothamBold
-Toggle.TextSize = 15
-Toggle.BorderSizePixel = 0
-Toggle.Parent = Main
-
-local ToggleCorner = Instance.new("UICorner")
-ToggleCorner.CornerRadius = UDim.new(0, 8)
-ToggleCorner.Parent = Toggle
-
---==================================================
--- SPEED BOX
---==================================================
-
-local SpeedBox = Instance.new("TextBox")
-SpeedBox.Name = "SpeedBox"
-SpeedBox.Size = UDim2.fromOffset(155, 45)
-SpeedBox.Position = UDim2.fromOffset(185, 65)
-SpeedBox.Text = tostring(SPEED)
-SpeedBox.PlaceholderText = "Speed"
-SpeedBox.ClearTextOnFocus = false
-SpeedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-SpeedBox.TextColor3 = Color3.new(1, 1, 1)
-SpeedBox.Font = Enum.Font.Gotham
-SpeedBox.TextSize = 15
-SpeedBox.BorderSizePixel = 0
-SpeedBox.Parent = Main
-
-local BoxCorner = Instance.new("UICorner")
-BoxCorner.CornerRadius = UDim.new(0, 8)
-BoxCorner.Parent = SpeedBox
-
---==================================================
--- STATUS
---==================================================
-
-local Status = Instance.new("TextLabel")
-Status.Size = UDim2.new(1, -40, 0, 35)
-Status.Position = UDim2.fromOffset(20, 125)
-Status.BackgroundTransparency = 1
-Status.TextColor3 = Color3.new(1, 1, 1)
-Status.Font = Enum.Font.Gotham
-Status.TextSize = 13
-Status.Parent = Main
-
---==================================================
--- GET HUMANOID
---==================================================
-
-local function GetHumanoid()
-
-	local Character = Player.Character
-
-	if not Character then
-		return nil
-	end
-
-	return Character:FindFirstChildOfClass("Humanoid")
-end
+local playerSpeed = {}
+local playerEnabled = {}
 
 --==================================================
 -- APPLY SPEED
 --==================================================
 
-local function ApplySpeed()
+local function applySpeed(player)
+	local character = player.Character
 
-	local Humanoid = GetHumanoid()
-
-	if not Humanoid then
+	if not character then
 		return
 	end
 
-	if SpeedEnabled then
-		Humanoid.WalkSpeed = SPEED
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+	if not humanoid then
+		return
+	end
+
+	local enabled = playerEnabled[player]
+
+	if enabled then
+		humanoid.WalkSpeed = playerSpeed[player] or 20
 	else
-		Humanoid.WalkSpeed = DEFAULT_SPEED
+		humanoid.WalkSpeed = DEFAULT_SPEED
 	end
 end
 
 --==================================================
--- UPDATE GUI
+-- PLAYER JOIN
 --==================================================
 
-local function UpdateGUI()
+Players.PlayerAdded:Connect(function(player)
 
-	if SpeedEnabled then
+	playerSpeed[player] = 20
+	playerEnabled[player] = true
 
-		Toggle.Text = "⚡Speed: On"
-		Toggle.BackgroundColor3 =
-			Color3.fromRGB(0, 170, 110)
+	player.CharacterAdded:Connect(function(character)
 
-		Status.Text =
-			"Speed đang chạy: " .. tostring(SPEED)
+		local humanoid =
+			character:WaitForChild("Humanoid", 10)
 
-		Status.TextColor3 =
-			Color3.fromRGB(0, 255, 170)
+		if humanoid then
+			task.wait(0.2)
+			applySpeed(player)
+		end
 
-	else
-
-		Toggle.Text = "Speed: Off"
-		Toggle.BackgroundColor3 =
-			Color3.fromRGB(50, 50, 55)
-
-		Status.Text = "Speed đã tắt"
-
-		Status.TextColor3 =
-			Color3.fromRGB(220, 220, 220)
-	end
-end
-
---==================================================
--- TOGGLE BUTTON
---==================================================
-
-Toggle.Activated:Connect(function()
-
-	SpeedEnabled = not SpeedEnabled
-
-	UpdateGUI()
-	ApplySpeed()
+	end)
 
 end)
 
 --==================================================
--- CHANGE SPEED
---==================================================
-
-SpeedBox.FocusLost:Connect(function()
-
-	local Value = tonumber(SpeedBox.Text)
-
-	if not Value then
-
-		SpeedBox.Text = tostring(SPEED)
-		UpdateGUI()
-
-		return
-	end
-
-	-- Chỉ lấy số nguyên
-	Value = math.floor(Value)
-
-	-- Giới hạn 16 -> 300
-	SPEED = math.clamp(
-		Value,
-		MIN_SPEED,
-		MAX_SPEED
-	)
-
-	SpeedBox.Text = tostring(SPEED)
-
-	-- Áp dụng ngay
-	ApplySpeed()
-
-	UpdateGUI()
-
-end)
-
---==================================================
--- RES
-```
+--
