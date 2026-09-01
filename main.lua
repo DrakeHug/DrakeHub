@@ -1,157 +1,313 @@
 --==================================================
--- DRAKE SPEED - ROBLOX STUDIO
---==================================================
-print("DRAKE SCRIPT STARTED")
-
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-
-local player = Players.LocalPlayer
-
---==================================================
--- SETTINGS
+-- SPEED BOX CORNER
 --==================================================
 
-local SPEED = 20
-local speedEnabled = true -- TỰ BẬT KHI VÀO SERVER
+local BoxCorner = Instance.new("UICorner")
 
-local MIN_SPEED = 16
-local MAX_SPEED = 300
-
---==================================================
--- GUI
---==================================================
-
-local ScreenGui = Instance.new("ScreenGui")
-
-ScreenGui.Name = "DrakeSpeed"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = player:WaitForChild("PlayerGui")
+BoxCorner.CornerRadius = UDim.new(0, 8)
+BoxCorner.Parent = SpeedBox
 
 --==================================================
--- MAIN
+-- STATUS
 --==================================================
 
-local Main = Instance.new("Frame")
+local Status = Instance.new("TextLabel")
 
-Main.Name = "Main"
-Main.Size = UDim2.fromOffset(360, 190)
-Main.Position = UDim2.new(0.5, -180, 0.5, -95)
+Status.Size = UDim2.new(1, -40, 0, 35)
+Status.Position = UDim2.fromOffset(20, 125)
 
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Main.BorderSizePixel = 0
+Status.BackgroundTransparency = 1
 
-Main.Parent = ScreenGui
+Status.TextColor3 = Color3.new(1, 1, 1)
 
-local MainCorner = Instance.new("UICorner")
+Status.Font = Enum.Font.Gotham
+Status.TextSize = 13
 
-MainCorner.CornerRadius = UDim.new(0, 12)
-MainCorner.Parent = Main
+Status.Parent = Main
 
 --==================================================
--- GRADIENT
+-- FUNCTIONS
 --==================================================
 
-local Gradient = Instance.new("UIGradient")
+local function getCharacter()
 
-Gradient.Color = ColorSequence.new({
+	return player.Character
 
-	ColorSequenceKeypoint.new(
-		0,
-		Color3.fromRGB(0, 255, 150)
-	),
+end
 
-	ColorSequenceKeypoint.new(
-		1,
-		Color3.fromRGB(0, 120, 255)
+local function getHumanoid()
+
+	local character = getCharacter()
+
+	if not character then
+		return nil
+	end
+
+	return character:FindFirstChildOfClass("Humanoid")
+
+end
+
+--==================================================
+-- APPLY SPEED
+--==================================================
+
+local function applySpeed()
+
+	local humanoid = getHumanoid()
+
+	if not humanoid then
+		return
+	end
+
+	if speedEnabled then
+
+		humanoid.WalkSpeed = SPEED
+
+	else
+
+		humanoid.WalkSpeed = 16
+
+	end
+
+end
+
+--==================================================
+-- UPDATE GUI
+--==================================================
+
+local function updateGUI()
+
+	if speedEnabled then
+
+		Toggle.Text = "⚡Speed: On"
+
+		Toggle.BackgroundColor3 =
+			Color3.fromRGB(0, 170, 110)
+
+		Status.Text =
+			"Speed đang chạy: " .. tostring(SPEED)
+
+		Status.TextColor3 =
+			Color3.fromRGB(0, 255, 170)
+
+	else
+
+		Toggle.Text = "Speed: Off"
+
+		Toggle.BackgroundColor3 =
+			Color3.fromRGB(50, 50, 55)
+
+		Status.Text = "Speed đã tắt"
+
+		Status.TextColor3 =
+			Color3.fromRGB(220, 220, 220)
+
+	end
+
+end
+
+--==================================================
+-- TOGGLE BUTTON
+--==================================================
+
+Toggle.MouseButton1Click:Connect(function()
+
+	speedEnabled = not speedEnabled
+
+	updateGUI()
+	applySpeed()
+
+end)
+
+--==================================================
+-- CHANGE SPEED
+--==================================================
+
+SpeedBox.FocusLost:Connect(function()
+
+	local value = tonumber(SpeedBox.Text)
+
+	if value then
+
+		SPEED = math.clamp(
+			value,
+			MIN_SPEED,
+			MAX_SPEED
+		)
+
+		SpeedBox.Text =
+			tostring(SPEED)
+
+		applySpeed()
+		updateGUI()
+
+	else
+
+		SpeedBox.Text =
+			tostring(SPEED)
+
+	end
+
+end)
+
+--==================================================
+-- CHARACTER / RESPAWN
+--==================================================
+
+player.CharacterAdded:Connect(function(character)
+
+	local humanoid =
+		character:WaitForChild(
+			"Humanoid",
+			10
+		)
+
+	if humanoid then
+
+		speedEnabled = true
+
+		updateGUI()
+
+		task.wait(0.2)
+
+		applySpeed()
+
+	end
+
+end)
+
+--==================================================
+-- KEEP SPEED
+--==================================================
+
+task.spawn(function()
+
+	while ScreenGui.Parent do
+
+		task.wait(0.2)
+
+		if speedEnabled then
+
+			local humanoid =
+				getHumanoid()
+
+			if humanoid
+				and humanoid.WalkSpeed ~= SPEED then
+
+				humanoid.WalkSpeed = SPEED
+
+			end
+
+		end
+
+	end
+
+end)
+
+--==================================================
+-- DRAG GUI
+--==================================================
+
+local dragging = false
+
+local dragStart
+local startPosition
+
+Top.InputBegan:Connect(function(input)
+
+	if input.UserInputType ==
+		Enum.UserInputType.MouseButton1
+
+		or input.UserInputType ==
+		Enum.UserInputType.Touch then
+
+		dragging = true
+
+		dragStart = input.Position
+		startPosition = Main.Position
+
+	end
+
+end)
+
+Top.InputEnded:Connect(function(input)
+
+	if input.UserInputType ==
+		Enum.UserInputType.MouseButton1
+
+		or input.UserInputType ==
+		Enum.UserInputType.Touch then
+
+		dragging = false
+
+	end
+
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+	if not dragging then
+		return
+	end
+
+	if input.UserInputType ~=
+		Enum.UserInputType.MouseMovement
+
+		and input.UserInputType ~=
+		Enum.UserInputType.Touch then
+
+		return
+
+	end
+
+	local delta =
+		input.Position - dragStart
+
+	Main.Position = UDim2.new(
+
+		startPosition.X.Scale,
+		startPosition.X.Offset + delta.X,
+
+		startPosition.Y.Scale,
+		startPosition.Y.Offset + delta.Y
+
 	)
 
-})
-
-Gradient.Rotation = 45
-Gradient.Parent = Main
+end)
 
 --==================================================
--- TOP BAR
+-- F1 OPEN / CLOSE
 --==================================================
 
-local Top = Instance.new("Frame")
+UserInputService.InputBegan:Connect(function(
+	input,
+	gameProcessed
+)
 
-Top.Name = "Top"
-Top.Size = UDim2.new(1, 0, 0, 45)
+	if gameProcessed then
+		return
+	end
 
-Top.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-Top.BackgroundTransparency = 0.15
-Top.BorderSizePixel = 0
+	if input.KeyCode ==
+		Enum.KeyCode.F1 then
 
-Top.Parent = Main
+		Main.Visible =
+			not Main.Visible
 
-local TopCorner = Instance.new("UICorner")
+	end
 
-TopCorner.CornerRadius = UDim.new(0, 12)
-TopCorner.Parent = Top
-
-local Title = Instance.new("TextLabel")
-
-Title.Size = UDim2.new(1, -20, 1, 0)
-Title.Position = UDim2.fromOffset(10, 0)
-
-Title.BackgroundTransparency = 1
-
-Title.Text = "Drake"
-Title.TextColor3 = Color3.new(1, 1, 1)
-
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 18
-
-Title.TextXAlignment = Enum.TextXAlignment.Left
-
-Title.Parent = Top
+end)
 
 --==================================================
--- TOGGLE
+-- START
 --==================================================
 
-local Toggle = Instance.new("TextButton")
+updateGUI()
 
-Toggle.Name = "Toggle"
+task.wait(0.5)
 
-Toggle.Size = UDim2.fromOffset(155, 45)
-Toggle.Position = UDim2.fromOffset(20, 65)
+applySpeed()
 
-Toggle.TextColor3 = Color3.new(1, 1, 1)
-
-Toggle.Font = Enum.Font.GothamBold
-Toggle.TextSize = 15
-
-Toggle.BorderSizePixel = 0
-
-Toggle.Parent = Main
-
-local ToggleCorner = Instance.new("UICorner")
-
-ToggleCorner.CornerRadius = UDim.new(0, 8)
-ToggleCorner.Parent = Toggle
-
---==================================================
--- SPEED BOX
---==================================================
-
-local SpeedBox = Instance.new("TextBox")
-
-SpeedBox.Name = "SpeedBox"
-
-SpeedBox.Size = UDim2.fromOffset(155, 45)
-SpeedBox.Position = UDim2.fromOffset(185, 65)
-
-SpeedBox.Text = tostring(SPEED)
-
-SpeedBox.PlaceholderText = "Speed"
-SpeedBox.ClearTextOnFocus = false
-SpeedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-SpeedBox.TextColor3 = Color3.new(1, 1, 1)
-SpeedBox.Font = Enum.Font.Gotham
-SpeedBox.TextSize = 15
-SpeedBox.BorderSizePixel = 0
-SpeedBox.Parent = Main
+print("[Drake Speed] Loaded")
+print("[Drake Speed] Speed:", SPEED)
+print("[Drake Speed] Enabled:", speedEnabled)
