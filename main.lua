@@ -147,4 +147,11 @@ SpeedBox.Position = UDim2.fromOffset(185, 65)
 
 SpeedBox.Text = tostring(SPEED)
 
-SpeedBox.PlaceholderText = "
+SpeedBox.PlaceholderText = "Speed"
+SpeedBox.ClearTextOnFocus = false
+SpeedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+SpeedBox.TextColor3 = Color3.new(1, 1, 1)
+SpeedBox.Font = Enum.Font.Gotham
+SpeedBox.TextSize = 15
+SpeedBox.BorderSizePixel = 0
+SpeedBox.Parent = Main
