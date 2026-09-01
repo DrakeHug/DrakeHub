@@ -1,81 +1,149 @@
 --==================================================
--- DRAKE SPEED - SERVER
+-- DRAKE SPEED - ROBLOX STUDIO
 --==================================================
 
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
-local DEFAULT_SPEED = 16
+local player = Players.LocalPlayer
+
+--==================================================
+-- SETTINGS
+--==================================================
+
+local SPEED = 20
+local speedEnabled = true -- TỰ BẬT KHI VÀO SERVER
+
 local MIN_SPEED = 16
 local MAX_SPEED = 300
 
 --==================================================
--- REMOTE EVENT
+-- GUI
 --==================================================
 
-local Remote = ReplicatedStorage:FindFirstChild("DrakeSpeedRemote")
+local ScreenGui = Instance.new("ScreenGui")
 
-if not Remote then
-	Remote = Instance.new("RemoteEvent")
-	Remote.Name = "DrakeSpeedRemote"
-	Remote.Parent = ReplicatedStorage
-end
-
---==================================================
--- PLAYER DATA
---==================================================
-
-local playerSpeed = {}
-local playerEnabled = {}
+ScreenGui.Name = "DrakeSpeed"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
 --==================================================
--- APPLY SPEED
+-- MAIN
 --==================================================
 
-local function applySpeed(player)
-	local character = player.Character
+local Main = Instance.new("Frame")
 
-	if not character then
-		return
-	end
+Main.Name = "Main"
+Main.Size = UDim2.fromOffset(360, 190)
+Main.Position = UDim2.new(0.5, -180, 0.5, -95)
 
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Main.BorderSizePixel = 0
 
-	if not humanoid then
-		return
-	end
+Main.Parent = ScreenGui
 
-	local enabled = playerEnabled[player]
+local MainCorner = Instance.new("UICorner")
 
-	if enabled then
-		humanoid.WalkSpeed = playerSpeed[player] or 20
-	else
-		humanoid.WalkSpeed = DEFAULT_SPEED
-	end
-end
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = Main
 
 --==================================================
--- PLAYER JOIN
+-- GRADIENT
 --==================================================
 
-Players.PlayerAdded:Connect(function(player)
+local Gradient = Instance.new("UIGradient")
 
-	playerSpeed[player] = 20
-	playerEnabled[player] = true
+Gradient.Color = ColorSequence.new({
 
-	player.CharacterAdded:Connect(function(character)
+	ColorSequenceKeypoint.new(
+		0,
+		Color3.fromRGB(0, 255, 150)
+	),
 
-		local humanoid =
-			character:WaitForChild("Humanoid", 10)
+	ColorSequenceKeypoint.new(
+		1,
+		Color3.fromRGB(0, 120, 255)
+	)
 
-		if humanoid then
-			task.wait(0.2)
-			applySpeed(player)
-		end
+})
 
-	end)
-
-end)
+Gradient.Rotation = 45
+Gradient.Parent = Main
 
 --==================================================
---
+-- TOP BAR
+--==================================================
+
+local Top = Instance.new("Frame")
+
+Top.Name = "Top"
+Top.Size = UDim2.new(1, 0, 0, 45)
+
+Top.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Top.BackgroundTransparency = 0.15
+Top.BorderSizePixel = 0
+
+Top.Parent = Main
+
+local TopCorner = Instance.new("UICorner")
+
+TopCorner.CornerRadius = UDim.new(0, 12)
+TopCorner.Parent = Top
+
+local Title = Instance.new("TextLabel")
+
+Title.Size = UDim2.new(1, -20, 1, 0)
+Title.Position = UDim2.fromOffset(10, 0)
+
+Title.BackgroundTransparency = 1
+
+Title.Text = "Drake"
+Title.TextColor3 = Color3.new(1, 1, 1)
+
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+Title.Parent = Top
+
+--==================================================
+-- TOGGLE
+--==================================================
+
+local Toggle = Instance.new("TextButton")
+
+Toggle.Name = "Toggle"
+
+Toggle.Size = UDim2.fromOffset(155, 45)
+Toggle.Position = UDim2.fromOffset(20, 65)
+
+Toggle.TextColor3 = Color3.new(1, 1, 1)
+
+Toggle.Font = Enum.Font.GothamBold
+Toggle.TextSize = 15
+
+Toggle.BorderSizePixel = 0
+
+Toggle.Parent = Main
+
+local ToggleCorner = Instance.new("UICorner")
+
+ToggleCorner.CornerRadius = UDim.new(0, 8)
+ToggleCorner.Parent = Toggle
+
+--==================================================
+-- SPEED BOX
+--==================================================
+
+local SpeedBox = Instance.new("TextBox")
+
+SpeedBox.Name = "SpeedBox"
+
+SpeedBox.Size = UDim2.fromOffset(155, 45)
+SpeedBox.Position = UDim2.fromOffset(185, 65)
+
+SpeedBox.Text = tostring(SPEED)
+
+SpeedBox.PlaceholderText = "
