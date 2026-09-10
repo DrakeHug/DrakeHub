@@ -1,5 +1,5 @@
 --==================================================
--- DRAKE SPEED
+-- DRAKE SPEED + JUMP
 --==================================================
 
 local Players = game:GetService("Players")
@@ -17,8 +17,13 @@ local MIN_SPEED = 16
 local MAX_SPEED = 300
 local SpeedEnabled = true
 
+local JUMP_POWER = 75
+local MIN_JUMP = 50
+local MAX_JUMP = 300
+local JumpEnabled = true
+
 --==================================================
--- XÓA GUI CŨ NẾU CÓ
+-- XÓA GUI CŨ
 --==================================================
 
 local OldGui = PlayerGui:FindFirstChild("DrakeSpeed")
@@ -37,8 +42,8 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = PlayerGui
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.fromOffset(360, 190)
-Main.Position = UDim2.new(0.5, -180, 0.5, -95)
+Main.Size = UDim2.fromOffset(360, 270)
+Main.Position = UDim2.new(0.5, -180, 0.5, -135)
 Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Main.BorderSizePixel = 0
 Main.Parent = ScreenGui
@@ -86,7 +91,7 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Top
 
 --==================================================
--- TOGGLE
+-- SPEED TOGGLE
 --==================================================
 
 local Toggle = Instance.new("TextButton")
@@ -124,16 +129,55 @@ BoxCorner.CornerRadius = UDim.new(0, 8)
 BoxCorner.Parent = SpeedBox
 
 --==================================================
+-- JUMP TOGGLE
+--==================================================
+
+local JumpToggle = Instance.new("TextButton")
+JumpToggle.Size = UDim2.fromOffset(155, 45)
+JumpToggle.Position = UDim2.fromOffset(20, 120)
+JumpToggle.TextColor3 = Color3.new(1, 1, 1)
+JumpToggle.Font = Enum.Font.GothamBold
+JumpToggle.TextSize = 15
+JumpToggle.BorderSizePixel = 0
+JumpToggle.Parent = Main
+
+local JumpToggleCorner = Instance.new("UICorner")
+JumpToggleCorner.CornerRadius = UDim.new(0, 8)
+JumpToggleCorner.Parent = JumpToggle
+
+--==================================================
+-- JUMP POWER BOX
+--==================================================
+
+local JumpBox = Instance.new("TextBox")
+JumpBox.Size = UDim2.fromOffset(155, 45)
+JumpBox.Position = UDim2.fromOffset(185, 120)
+JumpBox.Text = tostring(JUMP_POWER)
+JumpBox.PlaceholderText = "Jump Power"
+JumpBox.ClearTextOnFocus = false
+JumpBox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+JumpBox.TextColor3 = Color3.new(1, 1, 1)
+JumpBox.Font = Enum.Font.Gotham
+JumpBox.TextSize = 15
+JumpBox.BorderSizePixel = 0
+JumpBox.Parent = Main
+
+local JumpBoxCorner = Instance.new("UICorner")
+JumpBoxCorner.CornerRadius = UDim.new(0, 8)
+JumpBoxCorner.Parent = JumpBox
+
+--==================================================
 -- STATUS
 --==================================================
 
 local Status = Instance.new("TextLabel")
-Status.Size = UDim2.new(1, -40, 0, 35)
-Status.Position = UDim2.fromOffset(20, 125)
+Status.Size = UDim2.new(1, -40, 0, 70)
+Status.Position = UDim2.fromOffset(20, 180)
 Status.BackgroundTransparency = 1
 Status.TextColor3 = Color3.new(1, 1, 1)
 Status.Font = Enum.Font.Gotham
 Status.TextSize = 13
+Status.TextWrapped = true
 Status.Parent = Main
 
 --==================================================
@@ -171,39 +215,122 @@ local function ApplySpeed()
 end
 
 --==================================================
+-- APPLY JUMP
+--==================================================
+
+local function ApplyJump()
+
+	local Humanoid = GetHumanoid()
+
+	if not Humanoid then
+		return
+	end
+
+	-- Dùng JumpPower
+	Humanoid.UseJumpPower = true
+
+	if JumpEnabled then
+		Humanoid.JumpPower = JUMP_POWER
+	else
+		Humanoid.JumpPower = 50
+	end
+end
+
+--==================================================
+-- APPLY ALL
+--==================================================
+
+local function ApplyAll()
+
+	ApplySpeed()
+	ApplyJump()
+
+end
+
+--==================================================
 -- UPDATE GUI
 --==================================================
 
 local function UpdateGUI()
 
+	-- SPEED
+
 	if SpeedEnabled then
 
 		Toggle.Text = "⚡ Speed: On"
+
 		Toggle.BackgroundColor3 =
 			Color3.fromRGB(0, 170, 110)
-
-		Status.Text =
-			"Speed đang chạy: " .. tostring(SPEED)
-
-		Status.TextColor3 =
-			Color3.fromRGB(0, 255, 170)
 
 	else
 
 		Toggle.Text = "Speed: Off"
+
 		Toggle.BackgroundColor3 =
 			Color3.fromRGB(50, 50, 55)
 
-		Status.Text = "Speed đã tắt"
+	end
+
+	-- JUMP
+
+	if JumpEnabled then
+
+		JumpToggle.Text = "🦘 Jump: On"
+
+		JumpToggle.BackgroundColor3 =
+			Color3.fromRGB(0, 150, 220)
+
+	else
+
+		JumpToggle.Text = "Jump: Off"
+
+		JumpToggle.BackgroundColor3 =
+			Color3.fromRGB(50, 50, 55)
+
+	end
+
+	-- STATUS
+
+	if SpeedEnabled and JumpEnabled then
+
+		Status.Text =
+			"Speed: " .. tostring(SPEED) ..
+			"   |   Jump: " .. tostring(JUMP_POWER)
+
+		Status.TextColor3 =
+			Color3.fromRGB(0, 255, 170)
+
+	elseif SpeedEnabled then
+
+		Status.Text =
+			"Speed: " .. tostring(SPEED) ..
+			"   |   Jump: Off"
+
+		Status.TextColor3 =
+			Color3.fromRGB(0, 255, 170)
+
+	elseif JumpEnabled then
+
+		Status.Text =
+			"Speed: Off" ..
+			"   |   Jump: " .. tostring(JUMP_POWER)
+
+		Status.TextColor3 =
+			Color3.fromRGB(0, 200, 255)
+
+	else
+
+		Status.Text = "Speed: Off   |   Jump: Off"
 
 		Status.TextColor3 =
 			Color3.fromRGB(220, 220, 220)
 
 	end
+
 end
 
 --==================================================
--- TOGGLE
+-- SPEED TOGGLE
 --==================================================
 
 Toggle.Activated:Connect(function()
@@ -226,6 +353,7 @@ SpeedBox.FocusLost:Connect(function()
 	if not Value then
 
 		SpeedBox.Text = tostring(SPEED)
+
 		return
 
 	end
@@ -246,6 +374,50 @@ SpeedBox.FocusLost:Connect(function()
 end)
 
 --==================================================
+-- JUMP TOGGLE
+--==================================================
+
+JumpToggle.Activated:Connect(function()
+
+	JumpEnabled = not JumpEnabled
+
+	ApplyJump()
+	UpdateGUI()
+
+end)
+
+--==================================================
+-- CHANGE JUMP POWER
+--==================================================
+
+JumpBox.FocusLost:Connect(function()
+
+	local Value = tonumber(JumpBox.Text)
+
+	if not Value then
+
+		JumpBox.Text = tostring(JUMP_POWER)
+
+		return
+
+	end
+
+	Value = math.floor(Value)
+
+	JUMP_POWER = math.clamp(
+		Value,
+		MIN_JUMP,
+		MAX_JUMP
+	)
+
+	JumpBox.Text = tostring(JUMP_POWER)
+
+	ApplyJump()
+	UpdateGUI()
+
+end)
+
+--==================================================
 -- RESPAWN
 --==================================================
 
@@ -258,14 +430,14 @@ Player.CharacterAdded:Connect(function(Character)
 
 		task.wait(0.2)
 
-		ApplySpeed()
+		ApplyAll()
 
 	end
 
 end)
 
 --==================================================
--- KEEP SPEED
+-- KEEP SPEED + JUMP
 --==================================================
 
 task.spawn(function()
@@ -276,6 +448,10 @@ task.spawn(function()
 
 		if SpeedEnabled then
 			ApplySpeed()
+		end
+
+		if JumpEnabled then
+			ApplyJump()
 		end
 
 	end
@@ -349,7 +525,9 @@ UserInputService.InputBegan:Connect(function(Input, GameProcessed)
 	end
 
 	if Input.KeyCode == Enum.KeyCode.F1 then
+
 		Main.Visible = not Main.Visible
+
 	end
 
 end)
@@ -362,7 +540,8 @@ UpdateGUI()
 
 task.wait(0.3)
 
-ApplySpeed()
+ApplyAll()
 
-print("[Drake Speed] Loaded")
-print("[Drake Speed] Speed:", SPEED)
+print("[Drake] Loaded")
+print("[Drake] Speed:", SPEED)
+print("[Drake] Jump Power:", JUMP_POWER)
