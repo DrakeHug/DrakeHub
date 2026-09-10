@@ -14,12 +14,12 @@ local PlayerGui = Player:WaitForChild("PlayerGui")
 
 local SPEED = 20
 local MIN_SPEED = 16
-local MAX_SPEED = 300
+local MAX_SPEED = 500
 local SpeedEnabled = true
 
 local JUMP_POWER = 75
 local MIN_JUMP = 50
-local MAX_JUMP = 300
+local MAX_JUMP = 500
 local JumpEnabled = true
 
 --==================================================
